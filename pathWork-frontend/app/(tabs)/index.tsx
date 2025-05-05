@@ -22,10 +22,10 @@ const posts = [
   {
     id: 1,
     user: "@avi.udash",
-    userImage: require("../assets/images/avitypeshit.png"),
+    userImage: require("../../assets/images/avitypeshit.png"),
     time: "2 mins ago",
     type: "image",
-    image: require("../assets/images/skateTest.png"), // Placeholder
+    image: require("../../assets/images/skateTest.png"), // Placeholder
     title: "Film around Stanford v1",
     text: "started my film photography arc... here are some shots of @stanford.skates ! hmu if u wanna go shoot tgt around campus sometime",
     comments: 2,
@@ -33,10 +33,10 @@ const posts = [
   {
     id: 2,
     user: "@Sabzz",
-    userImage: require("../assets/images/SabinoCropped.jpeg"), // Placeholder
+    userImage: require("../../assets/images/SabinoCropped.jpeg"), // Placeholder
     time: "2 mins ago",
     type: "audio",
-    image: require("../assets/images/splash-icon.png"), // Placeholder
+    image: require("../../assets/images/splash-icon.png"), // Placeholder
     audio: true, // Placeholder for waveform
     title: "Sabino - Sunrise",
     text: "Been cooking up some new jazz tunes on the sax lately, check it out! 🎷",
@@ -45,10 +45,10 @@ const posts = [
   {
     id: 3,
     user: "@adrian",
-    userImage: require("../assets/images/andrewTypeShit.png"),
+    userImage: require("../../assets/images/andrewTypeShit.png"),
     time: "2 mins ago",
     type: "image",
-    image: require("../assets/images/guitarTest.png"), // Placeholder
+    image: require("../../assets/images/guitarTest.png"), // Placeholder
     title: "Guitar Practice",
     text: "Rehearsing with the band, still figuring out new songs 🎸",
     comments: 2,
@@ -64,7 +64,7 @@ export default function Index() {
       <View style={styles.header}>
         <View style={styles.headerCenter}>
           <Image
-            source={require("../assets/images/LOGO.png")}
+            source={require("../../assets/images/LOGO.png")}
             style={styles.logo}
           />
           <Text style={styles.headerText}>Patchwork</Text>
@@ -99,7 +99,7 @@ export default function Index() {
             <View style={styles.postHeader}>
               <Image
                 source={
-                  post.userImage || require("../assets/images/splash-icon.png")
+                  post.userImage || require("../../assets/images/splash-icon.png")
                 }
                 style={styles.avatar}
               />
