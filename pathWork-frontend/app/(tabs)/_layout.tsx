@@ -9,10 +9,10 @@ export default function TabLayout() {
         tabBarInactiveTintColor: "#8E8E93",
         headerShown: false,
         tabBarStyle: {
+          height: 80,
           backgroundColor: "#FFFFFF",
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
           overflow: "hidden",
+          paddingTop: 6,
         },
       }}
     >
@@ -21,7 +21,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="home" size={24} color={color} />
+            <FontAwesome name="home" size={30} color={color} />
           ),
         }}
       />
@@ -30,7 +30,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="plus-square" size={24} color={color} />
+            <FontAwesome name="plus-square" size={30} color={color} />
           ),
         }}
       />
@@ -39,7 +39,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="user" size={24} color={color} />
+            <FontAwesome name="user" size={30} color={color} />
           ),
         }}
       />
