@@ -6,8 +6,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
   ScrollView,
+  SafeAreaView
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome } from "@expo/vector-icons";
 import { useState } from "react";
 
@@ -32,7 +32,7 @@ export default function AddPost() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollView}>
+      <View style={styles.scrollView}>
         <View style={styles.header}>
           <Text style={styles.title}>Create New Post</Text>
         </View>
@@ -135,7 +135,7 @@ export default function AddPost() {
             <Text style={styles.postButtonText}>Post</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
