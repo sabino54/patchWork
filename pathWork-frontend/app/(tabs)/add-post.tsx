@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome } from "@expo/vector-icons";
@@ -31,104 +32,110 @@ export default function AddPost() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Create New Post</Text>
-      </View>
-
-      <View style={styles.postTypes}>
-        <TouchableOpacity
-          style={[
-            styles.postTypeButton,
-            selectedPostType === "photo" && styles.selectedPostType,
-          ]}
-          onPress={() => setSelectedPostType("photo")}
-        >
-          <Text
+      <ScrollView contentContainerStyle={styles.scrollView}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Create New Post</Text>
+        </View>
+        <View style={styles.postTypes}>
+          <TouchableOpacity
             style={[
-              styles.postTypeText,
-              selectedPostType === "photo" && styles.selectedText,
+              styles.postTypeButton,
+              selectedPostType === "photo" && styles.selectedPostType,
             ]}
+            onPress={() => setSelectedPostType("photo")}
           >
-            Photo
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.postTypeButton,
-            selectedPostType === "audio" && styles.selectedPostType,
-          ]}
-          onPress={() => setSelectedPostType("audio")}
-        >
-          <Text
+            <Text
+              style={[
+                styles.postTypeText,
+                selectedPostType === "photo" && styles.selectedText,
+              ]}
+            >
+              Photo
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
-              styles.postTypeText,
-              selectedPostType === "audio" && styles.selectedText,
+              styles.postTypeButton,
+              selectedPostType === "audio" && styles.selectedPostType,
             ]}
+            onPress={() => setSelectedPostType("audio")}
           >
-            Audio
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {selectedPostType === "photo" && (
-        <View style={styles.uploadContainer}>
-          <TouchableOpacity style={styles.uploadButton}>
-            <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
-            <Text style={styles.uploadText}>Upload Photo</Text>
+            <Text
+              style={[
+                styles.postTypeText,
+                selectedPostType === "audio" && styles.selectedText,
+              ]}
+            >
+              Audio
+            </Text>
           </TouchableOpacity>
         </View>
-      )}
 
-      {selectedPostType === "audio" && (
-        <View style={styles.uploadContainer}>
-          <TouchableOpacity style={styles.uploadButton}>
-            <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
-            <Text style={styles.uploadText}>Upload Audio</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={styles.tagsContainer}>
-        {tags.map((tag, index) => (
-          <View key={index} style={styles.tagButton}>
-            <Text style={styles.tagText}>{tag}</Text>
-            <TouchableOpacity onPress={() => handleTagDelete(index)}>
-              <FontAwesome name="times" size={16} color={"white"} />
+        {selectedPostType === "photo" && (
+          <View style={styles.uploadContainer}>
+            <TouchableOpacity style={styles.uploadButton}>
+              <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
+              <Text style={styles.uploadText}>Upload Photo</Text>
             </TouchableOpacity>
           </View>
-        ))}
+        )}
 
-        <TouchableOpacity
-          style={styles.addTagButton}
-          onPress={handleAddTagButtonPress}
-        >
-          <Text style={{}}>+ Add Tag</Text>
-        </TouchableOpacity>
-      </View>
+        {selectedPostType === "audio" && (
+          <View style={styles.uploadContainer}>
+            <TouchableOpacity style={styles.uploadButton}>
+              <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
+              <Text style={styles.uploadText}>Upload Audio</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-      <View style={styles.textContainer}>
-        <KeyboardAvoidingView
-          behavior={"padding"}
-          style={{ flex: 1 }}
-        >
-          <TextInput
-            placeholder="Enter a title"
-            value={title}
-            onChangeText={setTitle}
-            style={{ ...styles.titleInput, color: title ? "#000" : "#333" }}
-          />
-          <TextInput
-            placeholder="Enter description here..."
-            multiline
-            value={description}
-            onChangeText={setDescription}
-            style={{
-              ...styles.descriptionInput,
-              color: description ? "#000" : "#333",
-            }}
-          />
+        <View style={styles.tagsContainer}>
+          {tags.map((tag, index) => (
+            <View key={index} style={styles.tagButton}>
+              <Text style={styles.tagText}>{tag}</Text>
+              <TouchableOpacity onPress={() => handleTagDelete(index)}>
+                <FontAwesome name="times" size={16} color={"white"} />
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          <TouchableOpacity
+            style={styles.addTagButton}
+            onPress={handleAddTagButtonPress}
+          >
+            <Text style={{}}>+ Add Tag</Text>
+          </TouchableOpacity>
+        </View>
+
+        <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
+          <View style={styles.textContainer}>
+            <TextInput
+              placeholder="Enter a title"
+              value={title}
+              onChangeText={setTitle}
+              style={styles.titleInput}
+              placeholderTextColor="#aaa"
+            />
+            <TextInput
+              placeholder="Enter description here..."
+              multiline
+              value={description}
+              onChangeText={setDescription}
+              style={styles.descriptionInput}
+              placeholderTextColor="#aaa"
+            />
+          </View>
         </KeyboardAvoidingView>
-      </View>
+
+        <View style={styles.actionContainer}>
+          <TouchableOpacity style={styles.cancelButton}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.postButton}>
+            <Text style={styles.postButtonText}>Post</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -137,8 +144,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f7f0fa",
-    gap: 20,
-    overflow: "scroll",
+  },
+  scrollView: {
+    flex: 1,
+    display: "flex",
+    backgroundColor: "#f7f0fa",
+    gap: 10,
   },
 
   // Header
@@ -202,7 +213,7 @@ const styles = StyleSheet.create({
   // Tags Section
   tagsContainer: {
     flexDirection: "row",
-    padding: 10,
+    paddingHorizontal: 20,
     gap: 10,
   },
   tagButton: {
@@ -212,7 +223,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 8,
     backgroundColor: "#a084ca",
-    borderRadius: 15,
+    borderRadius: 99,
   },
   tagText: {
     color: "white",
@@ -228,13 +239,50 @@ const styles = StyleSheet.create({
   textContainer: {
     flex: 1,
     backgroundColor: "#fff",
-    padding: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 5,
   },
   titleInput: {
     fontSize: 16,
     fontWeight: "bold",
   },
   descriptionInput: {
-    fontSize: 12,
+    fontSize: 16,
+    minHeight: 100,
+  },
+
+  // Action Section
+  actionContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingHorizontal: 20,
+  },
+  postButton: {
+    backgroundColor: "#a084ca",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  postButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 20,
+  },
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#a084ca",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButtonText: {
+    color: "#a084ca",
+    fontSize: 20,
   },
 });
