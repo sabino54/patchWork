@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
+import { View, TouchableOpacity } from "react-native";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import Auth from "../components/auth";
 import Account from "../components/Account";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function RootLayout() {
+  const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -30,6 +32,28 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="account"
+          options={{
+            title: "Settings",
+            headerStyle: {
+              backgroundColor: "#f7f0fa",
+            },
+            headerTintColor: "#8d5fd3",
+            headerTitleStyle: {
+              fontWeight: "bold",
+              fontSize: 20,
+            },
+            headerShadowVisible: false,
+            headerBackTitle: " ",
+          }}
+        />
+        <Stack.Screen
+          name="folder/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack>
     </>
   );

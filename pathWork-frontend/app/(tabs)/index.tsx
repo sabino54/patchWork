@@ -10,49 +10,14 @@ import {
   SafeAreaView,
 } from "react-native";
 
+import { mockData } from "../../components/mockData";
+
 const categories = [
   "All",
-  "Music",
-  "Sewing & Knitting",
-  "Photography",
-  "Painting",
-];
-
-const posts = [
-  {
-    id: 1,
-    user: "@avi.udash",
-    userImage: require("../../assets/images/avitypeshit.png"),
-    time: "2 mins ago",
-    type: "image",
-    image: require("../../assets/images/skateTest.png"), // Placeholder
-    title: "Film around Stanford v1",
-    text: "started my film photography arc... here are some shots of @stanford.skates ! hmu if u wanna go shoot tgt around campus sometime",
-    comments: 2,
-  },
-  {
-    id: 2,
-    user: "@Sabzz",
-    userImage: require("../../assets/images/SabinoCropped.jpeg"), // Placeholder
-    time: "2 mins ago",
-    type: "audio",
-    image: require("../../assets/images/splash-icon.png"), // Placeholder
-    audio: true, // Placeholder for waveform
-    title: "Sabino - Sunrise",
-    text: "Been cooking up some new jazz tunes on the sax lately, check it out! 🎷",
-    comments: 0,
-  },
-  {
-    id: 3,
-    user: "@adrian",
-    userImage: require("../../assets/images/andrewTypeShit.png"),
-    time: "2 mins ago",
-    type: "image",
-    image: require("../../assets/images/guitarTest.png"), // Placeholder
-    title: "Guitar Practice",
-    text: "Rehearsing with the band, still figuring out new songs 🎸",
-    comments: 2,
-  },
+  "Music & Audio",
+  "Visual Arts",
+  "Performance",
+  "Writing & Language",
 ];
 
 export default function Index() {
@@ -94,37 +59,51 @@ export default function Index() {
 
       {/* Feed */}
       <ScrollView style={styles.feed}>
-        {posts.map((post) => (
-          <View key={post.id} style={styles.postCard}>
-            <View style={styles.postHeader}>
-              <Image
-                source={
-                  post.userImage || require("../../assets/images/splash-icon.png")
-                }
-                style={styles.avatar}
-              />
-              <Text style={styles.username}>{post.user}</Text>
-              <Text style={styles.time}>{post.time}</Text>
-            </View>
-            {post.type === "image" && (
-              <Image source={post.image} style={styles.postImage} />
-            )}
-            {post.type === "audio" && (
-              <View style={styles.audioRow}>
-                <Image source={post.image} style={styles.audioAvatar} />
-                <View style={styles.audioWave}>
-                  <Text style={{ color: "#aaa" }}>[waveform]</Text>
+        {mockData
+          .filter(
+            (post) =>
+              selectedCategory === "All" || post.category === selectedCategory
+          )
+          .map((post) => (
+            <View key={post.id} style={styles.postCard}>
+              <View style={styles.postHeader}>
+                <Image
+                  source={
+                    post.userImage ||
+                    require("../../assets/images/splash-icon.png")
+                  }
+                  style={styles.avatar}
+                />
+                <Text style={styles.username}>{post.user}</Text>
+                <View style={styles.versionBadge}>
+                  <Text style={styles.versionText}>v{post.version}</Text>
                 </View>
-                <TouchableOpacity style={styles.audioPlayBtn}>
-                  <Text style={{ fontSize: 20, color: "#8d5fd3" }}>▶</Text>
-                </TouchableOpacity>
+                <Text style={styles.time}>{post.time}</Text>
               </View>
-            )}
-            <Text style={styles.postTitle}>{post.title}</Text>
-            <Text style={styles.postText}>{post.text}</Text>
-            <Text style={styles.comments}>{post.comments} comments</Text>
-          </View>
-        ))}
+              {post.type === "image" && (
+                <Image source={post.image} style={styles.postImage} />
+              )}
+              {post.type === "audio" && (
+                <View style={styles.audioRow}>
+                  <Image source={post.image} style={styles.audioAvatar} />
+                  <View style={styles.audioWave}>
+                    <Text style={{ color: "#aaa" }}>[waveform]</Text>
+                  </View>
+                  <TouchableOpacity style={styles.audioPlayBtn}>
+                    <Text style={{ fontSize: 20, color: "#8d5fd3" }}>▶</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              <Text style={styles.postTitle}>{post.title}</Text>
+              <Text style={styles.postText}>{post.text}</Text>
+              <View style={styles.tagContainer}>
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>{post.category}</Text>
+                </View>
+              </View>
+              <Text style={styles.comments}>{post.comments} comments</Text>
+            </View>
+          ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -313,5 +292,35 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderColor: "#8d5fd3",
+  },
+  tagContainer: {
+    flexDirection: "row",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  tag: {
+    backgroundColor: "#f2e9fa",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e0d6f7",
+  },
+  tagText: {
+    color: "#8d5fd3",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  versionBadge: {
+    backgroundColor: "#e0d6f7",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  versionText: {
+    color: "#8d5fd3",
+    fontSize: 11,
+    fontWeight: "600",
   },
 });

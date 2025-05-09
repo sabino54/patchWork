@@ -1,29 +1,34 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  RefreshControl,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useState, useEffect } from "react";
-import { useFocusEffect } from "expo-router";
 import React from "react";
+import ArtworkFolders from "../../components/ArtworkFolders";
+
 export default function UserProfile() {
   const router = useRouter();
   const [userData, setUserData] = useState<{
     username: string;
     bio: string;
     mod: boolean;
+    profile_photo: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchUserProfile();
   }, []);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchUserProfile();
-    }, [])
-  );
 
   async function fetchUserProfile() {
     try {
@@ -36,11 +41,17 @@ export default function UserProfile() {
 
       const { data, error } = await supabase
         .from("users")
-        .select("username, bio, mod")
+        .select("username, bio, mod, profile_photo")
         .eq("id", user.id)
         .single();
 
       if (error) throw error;
+
+      // Force a re-render of the profile image by adding a timestamp
+      if (data.profile_photo) {
+        data.profile_photo = `${data.profile_photo}?t=${Date.now()}`;
+      }
+
       setUserData(data);
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -49,53 +60,121 @@ export default function UserProfile() {
     }
   }
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+
+    // Start both the fetch and the delay
+    const fetchPromise = fetchUserProfile();
+    const delayPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Wait for both to complete
+    await Promise.all([fetchPromise, delayPromise]);
+
+    // Add a small delay before hiding the indicator
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setRefreshing(false);
+  }, []);
+
+  const handleFolderPress = (folderId: string) => {
+    router.push({
+      pathname: "/folder/[id]",
+      params: { id: folderId },
+    });
+  };
+
+  // Mock data for folders - replace with actual data from your backend
+  const mockFolders = [
+    {
+      id: "1",
+      title: "Digital Paintings",
+      thumbnail: "https://picsum.photos/200",
+      versionCount: 5,
+      lastUpdated: "2 days ago",
+    },
+    {
+      id: "2",
+      title: "Character Designs",
+      thumbnail: "https://picsum.photos/201",
+      versionCount: 3,
+      lastUpdated: "1 week ago",
+    },
+    {
+      id: "3",
+      title: "Landscape Studies",
+      thumbnail: "https://picsum.photos/202",
+      versionCount: 8,
+      lastUpdated: "3 days ago",
+    },
+  ];
+
   if (loading) {
     return null;
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={{ position: "absolute", right: 20, top: 20, zIndex: 1 }}
-          onPress={() => router.push("../account")}
-        >
-          <Ionicons name="settings-outline" size={28} color="#666" />
-        </TouchableOpacity>
-        <Image
-          source={require("../../assets/images/SabinoCropped.jpeg")}
-          style={styles.profileImage}
-        />
-        <Text style={styles.name}>{userData?.username}</Text>
-        <Text style={styles.username}>@{userData?.username || "username"}</Text>
-        {userData?.mod && (
-          <View style={styles.adminBadge}>
-            <Text style={styles.adminText}>Admin</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#8d5fd3"
+            colors={["#8d5fd3"]}
+            progressViewOffset={20}
+            progressBackgroundColor="#f7f0fa"
+          />
+        }
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={{ position: "absolute", right: 20, top: 20, zIndex: 1 }}
+            onPress={() => router.push("../account")}
+          >
+            <Ionicons name="settings-outline" size={28} color="#666" />
+          </TouchableOpacity>
+          <Image
+            source={{ uri: userData?.profile_photo }}
+            style={styles.profileImage}
+          />
+          <Text style={styles.name}>{userData?.username}</Text>
+          <Text style={styles.username}>
+            @{userData?.username || "username"}
+          </Text>
+          {userData?.mod && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminText}>Admin</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>42</Text>
+            <Text style={styles.statLabel}>Posts</Text>
           </View>
-        )}
-      </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>128</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>64</Text>
+            <Text style={styles.statLabel}>Following</Text>
+          </View>
+        </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>42</Text>
-          <Text style={styles.statLabel}>Posts</Text>
+        <View style={styles.bioContainer}>
+          <Text style={styles.bioTitle}>About</Text>
+          <Text style={styles.bioText}>
+            {userData?.bio || "No bio available"}
+          </Text>
         </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>128</Text>
-          <Text style={styles.statLabel}>Followers</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>64</Text>
-          <Text style={styles.statLabel}>Following</Text>
-        </View>
-      </View>
 
-      <View style={styles.bioContainer}>
-        <Text style={styles.bioTitle}>About</Text>
-        <Text style={styles.bioText}>
-          {userData?.bio || "No bio available"}
-        </Text>
-      </View>
+        <ArtworkFolders
+          folders={mockFolders}
+          onFolderPress={handleFolderPress}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 }
