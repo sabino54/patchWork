@@ -29,17 +29,40 @@ AppState.addEventListener("change", (state) => {
 
 async function createProfile(user: User) {
   console.log("Creating profile for user: ", user);
-  const { error } = await supabase.from("users").insert([
+
+  const { data: privateProfile, error: privateError } = await supabase
+  .from("private_profiles")
+  .insert([{ user_id: user.id,
+    email: user.email,
+    mod: false,
+   }])
+  .select()
+  .single();
+
+if (privateError) {
+  Alert.alert("Private profile creation failed: " + privateError.message);
+  return;
+}
+
+  const {data: exist, error: existError} = await supabase
+    .from("public_profiles")
+    .select("id")
+    .eq("id", user.id)
+    .single();
+
+  if (!exist) {
+  const { error } = await supabase.from("public_profiles").insert([
     {
       id: user.id,
-      username: user.email,
+      username: user.email?.split("@")[0],
       bio: "Nothing here to see",
-      mod: true,
+      private_id: privateProfile.user_id,
     },
   ]);
   if (error) {
     Alert.alert("Profile creation failed: " + error.message);
   }
+}
 }
 
 export default function Auth() {
@@ -50,12 +73,15 @@ export default function Auth() {
 
   async function signInWithEmail() {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
       password: password,
     });
 
     if (error) Alert.alert(error.message);
+    else if (data.user) {
+      await createProfile(data.user);
+    }
     setLoading(false);
   }
 
@@ -68,7 +94,7 @@ export default function Auth() {
       email: email,
       password: password,
     });
-    if (user) createProfile(user);
+    // if (user) createProfile(user);
     if (error) Alert.alert(error.message);
     if (!session)
       Alert.alert("Please check your inbox for email verification!");

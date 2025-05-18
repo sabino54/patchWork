@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
+  SafeAreaView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
@@ -20,7 +21,6 @@ export default function UserProfile() {
   const [userData, setUserData] = useState<{
     username: string;
     bio: string;
-    mod: boolean;
     profile_photo: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,8 +40,8 @@ export default function UserProfile() {
       if (!user) throw new Error("No user found");
 
       const { data, error } = await supabase
-        .from("users")
-        .select("username, bio, mod, profile_photo")
+        .from("public_profiles")
+        .select("username, bio, profile_photo")
         .eq("id", user.id)
         .single();
 
@@ -108,7 +108,11 @@ export default function UserProfile() {
   ];
 
   if (loading) {
-    return null;
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#8d5fd3" />
+      </View>
+    );
   }
 
   return (
@@ -141,11 +145,6 @@ export default function UserProfile() {
           <Text style={styles.username}>
             @{userData?.username || "username"}
           </Text>
-          {userData?.mod && (
-            <View style={styles.adminBadge}>
-              <Text style={styles.adminText}>Admin</Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.statsContainer}>
@@ -204,18 +203,6 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 5,
   },
-  adminBadge: {
-    backgroundColor: "#a084ca",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  adminText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -250,5 +237,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     lineHeight: 24,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
