@@ -31,7 +31,7 @@ export default function Account({ session }: { session: Session }) {
 
       console.log("Fetching profile for user:", session.user.id);
       const { data, error, status } = await supabase
-        .from("users")
+        .from("public_profiles")
         .select(`username, bio, profile_photo`)
         .eq("id", session?.user.id)
         .single();
@@ -81,7 +81,7 @@ export default function Account({ session }: { session: Session }) {
         bio,
       };
 
-      const { error } = await supabase.from("users").upsert(updates);
+      const { error } = await supabase.from("public_profiles").upsert(updates);
 
       if (error) {
         console.error("Profile update error:", error);
@@ -108,7 +108,7 @@ export default function Account({ session }: { session: Session }) {
 
       // Get the local file URI
       const imageUri = Image.resolveAssetSource(
-        require("../assets/images/SabinoCropped.jpeg")
+        require("../assets/images/SabinoCropped.jpeg"),
       ).uri;
       console.log("Local image URI:", imageUri);
 
@@ -142,7 +142,7 @@ export default function Account({ session }: { session: Session }) {
 
       console.log("Updating user profile with new photo URL...");
       const { error: updateError } = await supabase
-        .from("users")
+        .from("public_profiles")
         .update({ profile_photo: data.publicUrl })
         .eq("id", session.user.id);
 
