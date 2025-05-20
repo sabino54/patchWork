@@ -20,7 +20,6 @@ export default function UserProfile() {
   const [userData, setUserData] = useState<{
     username: string;
     bio: string;
-    mod: boolean;
     profile_photo: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,8 +39,8 @@ export default function UserProfile() {
       if (!user) throw new Error("No user found");
 
       const { data, error } = await supabase
-        .from("users")
-        .select("username, bio, mod, profile_photo")
+        .from("public_profiles")
+        .select("username, bio, profile_photo")
         .eq("id", user.id)
         .single();
 
@@ -141,11 +140,6 @@ export default function UserProfile() {
           <Text style={styles.username}>
             @{userData?.username || "username"}
           </Text>
-          {userData?.mod && (
-            <View style={styles.adminBadge}>
-              <Text style={styles.adminText}>Admin</Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.statsContainer}>

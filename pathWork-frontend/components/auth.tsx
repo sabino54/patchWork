@@ -27,22 +27,23 @@ AppState.addEventListener("change", (state) => {
   }
 });
 
-async function createProfile(user: User) {
+async function createProfile(user: User, username: string) {
   console.log("Creating profile for user: ", user);
-  const { error } = await supabase.from("users").insert([
+  const { error } = await supabase.from("public_profiles").insert([
     {
       id: user.id,
-      username: user.email,
+      username: username,
       bio: "Nothing here to see",
-      mod: true,
     },
   ]);
   if (error) {
+    // TODO: handle duplicate username error
     Alert.alert("Profile creation failed: " + error.message);
   }
 }
 
 export default function Auth() {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -68,7 +69,7 @@ export default function Auth() {
       email: email,
       password: password,
     });
-    if (user) createProfile(user);
+    if (user) createProfile(user, username);
     if (error) Alert.alert(error.message);
     if (!session)
       Alert.alert("Please check your inbox for email verification!");
@@ -96,6 +97,23 @@ export default function Auth() {
           </Text>
 
           <View style={styles.form}>
+            {isSignUp && (
+              <Input
+                placeholder="Username"
+                leftIcon={{
+                  type: "font-awesome",
+                  name: "user",
+                  color: "#8d5fd3",
+                  style: { marginRight: 8 },
+                }}
+                onChangeText={(text) => setUsername(text)}
+                value={username}
+                autoCapitalize={"none"}
+                inputContainerStyle={styles.inputContainer}
+                inputStyle={styles.input}
+                placeholderTextColor="#aaa"
+              />
+            )}
             <Input
               placeholder="Email"
               leftIcon={{
