@@ -97,6 +97,23 @@ export default function Auth() {
           </Text>
 
           <View style={styles.form}>
+            {isSignUp && (
+              <Input
+                placeholder="Username"
+                leftIcon={{
+                  type: "font-awesome",
+                  name: "user",
+                  color: "#8d5fd3",
+                  style: { marginRight: 8 },
+                }}
+                onChangeText={(text) => setUsername(text)}
+                value={username}
+                autoCapitalize={"none"}
+                inputContainerStyle={styles.inputContainer}
+                inputStyle={styles.input}
+                placeholderTextColor="#aaa"
+              />
+            )}
             <Input
               placeholder="Email"
               leftIcon={{
