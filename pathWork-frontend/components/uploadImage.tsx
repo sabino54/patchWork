@@ -1,7 +1,7 @@
 import { Image, View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface UploadImageProps {
   imageUri: string | null;
@@ -10,6 +10,11 @@ interface UploadImageProps {
 
 export function UploadImage({ imageUri, onImageSelection }: UploadImageProps) {
   const [image, setImage] = useState<string | null>(imageUri);
+
+  // Update internal state when imageUri prop changes
+  useEffect(() => {
+    setImage(imageUri);
+  }, [imageUri]);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
