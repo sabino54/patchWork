@@ -7,18 +7,21 @@ import {
   KeyboardAvoidingView,
   SafeAreaView,
   Alert,
-  ScrollView
+  ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { FontAwesome } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { UploadImage } from "@/components/uploadImage";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
-import uuid from 'react-native-uuid';
-
+import { createPost, uploadImage } from "@/api/upload-post";
+import { useRouter } from "expo-router";
 
 export default function AddPost() {
+  const router = useRouter();
+
   const [selectedPostType, setSelectedPostType] = useState<"image" | "audio">(
     "image",
   );
@@ -26,77 +29,45 @@ export default function AddPost() {
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-  const [publicImageUrl, setPublicImageUrl] = useState<string | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
 
-
+  // Fetch user on mount
   useEffect(() => {
     // TODO: use session instead of getUser? getUser makes a network request, but idk if session does
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
-      setLoading(false);
     });
   }, []);
 
-  const fetchImageFromUri = async (uri: string) => {
-    const response = await fetch(uri);
-    const arrayBuffer = await response.arrayBuffer();
-    return arrayBuffer;
-  };
+  // Upload image mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: uploadImage,
+    onError: (error: Error) => {
+      console.error(error.message);
+      Alert.alert("Error", "Failed to upload image");
+    },
+  });
 
-  async function uploadImage() {
-    if (imageUri) {
-      try {
-        // Convert the image URI to a Blob and generate a unique filename
-        const imageArray = await fetchImageFromUri(imageUri);
-        const randomImageUUID = uuid.v4();
-        const filename = `${user?.id}/${randomImageUUID}.${imageUri.split('.').pop()}`;
+  // Create post mutation
+  const createPostMutation = useMutation({
+    mutationFn: createPost,
+    onSuccess: () => {
+      Alert.alert("Success", "Post created successfully");
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setImageUri(null);
+      setTags([]);
 
-        // Upload the image to Supabase storage
-        const { data: imageUploadData, error } = await supabase.storage
-          .from("posts")
-          .upload(filename, imageArray);
-
-        if (error) {
-          console.error("Error uploading image:", error);
-        }
-
-        // Get the public URL of the uploaded image
-        const publicUrl = supabase.storage
-          .from("posts")
-          .getPublicUrl(filename).data.publicUrl
-        setPublicImageUrl(publicUrl);
-      } catch (error) {
-        console.error("Error uploading image:", error);
-        Alert.alert("Error uploading image");
-      }
-    }
-  }
-
-  async function createPost() {
-    try{
-      const { data, error } = await supabase.from("posts").insert({
-        title,
-        description,
-        user_id: user?.id,
-        media_url: publicImageUrl,
-        media_type: selectedPostType
-      }).select();
-
-      if (error) {
-        console.error("Error creating post:", error);
-      }
-
-      if (data) {
-        Alert.alert("Post created successfully");
-      }
-    } catch (error) {
-      console.error("Error creating post:", error);
-      Alert.alert("Error creating post");
-    }
-  }
+      // navigate to the home screen
+      router.navigate("/");
+    },
+    onError: (error: Error) => {
+      console.error(error.message);
+      Alert.alert("Error", "Failed to create post");
+    },
+  });
 
   const handleAddTagButtonPress = () => {
     setTags([...tags, "New Tag"]);
@@ -108,12 +79,55 @@ export default function AddPost() {
     setTags(newTags);
   };
 
+  // Loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handlePost = async () => {
-    setLoading(true);
-    await uploadImage();
-    await createPost();
-    setLoading(false);
-  }
+    if (!title.trim()) {
+      Alert.alert("Error", "Please enter a title for your post");
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert("Error", "You must be logged in to create a post");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // For image posts, upload the image first
+      if (selectedPostType === "image" && imageUri) {
+        // Upload the image and wait for it to complete
+        const uploadedImageUrl = await uploadImageMutation.mutateAsync({
+          imageUri,
+          userId: user.id,
+        });
+
+        // After successful image upload, create the post with the image URL
+        await createPostMutation.mutateAsync({
+          title,
+          description,
+          userId: user.id,
+          mediaUrl: uploadedImageUrl,
+          mediaType: selectedPostType,
+        });
+      } else {
+        // For audio posts or posts without media
+        await createPostMutation.mutateAsync({
+          title,
+          description,
+          userId: user.id,
+          mediaUrl: null,
+          mediaType: selectedPostType,
+        });
+      }
+    } catch (error) {
+      console.error("Error in post creation process:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -157,7 +171,7 @@ export default function AddPost() {
         </View>
 
         {selectedPostType === "image" && (
-          <UploadImage 
+          <UploadImage
             imageUri={imageUri}
             onImageSelection={(uri) => {
               setImageUri(uri);
@@ -213,11 +227,19 @@ export default function AddPost() {
         </KeyboardAvoidingView>
 
         <KeyboardAvoidingView style={styles.actionContainer}>
-          <TouchableOpacity style={styles.cancelButton}>
+          <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.postButton} onPress={handlePost}>
-            <Text style={styles.postButtonText}>Post</Text>
+          <TouchableOpacity
+            style={[styles.postButton, isSubmitting && styles.disabledButton]}
+            onPress={handlePost}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Text style={styles.postButtonText}>Post</Text>
+            )}
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </ScrollView>
@@ -369,5 +391,9 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: "#a084ca",
     fontSize: 20,
+  },
+  disabledButton: {
+    backgroundColor: "#ccc",
+    opacity: 0.7,
   },
 });
