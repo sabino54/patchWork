@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   SafeAreaView,
   Alert,
+  ScrollView
 } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { FontAwesome } from "@expo/vector-icons";
@@ -14,6 +15,7 @@ import { useEffect, useState } from "react";
 import { UploadImage } from "@/components/uploadImage";
 import { supabase } from "../../lib/supabase";
 import { User } from "@supabase/supabase-js";
+import uuid from 'react-native-uuid';
 
 
 export default function AddPost() {
@@ -24,7 +26,7 @@ export default function AddPost() {
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-  const [postId, setPostId] = useState<string | null>(null);
+  const [publicImageUrl, setPublicImageUrl] = useState<string | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -38,43 +40,48 @@ export default function AddPost() {
     });
   }, []);
 
-  const uploadImageMutation = useMutation({
-    // mutationFn: async (imageUri: string) => {
-    //   supabase.storage.from("posts").upload(`user-${user.data.user?.id}/posts/${postId}`)
-    // },
-  })
-
-  const fetchImageFromUri = async (uri) => {
+  const fetchImageFromUri = async (uri: string) => {
     const response = await fetch(uri);
-    const blob = await response.blob();
-    return blob;
+    const arrayBuffer = await response.arrayBuffer();
+    return arrayBuffer;
   };
 
   async function uploadImage() {
     if (imageUri) {
-      const imageBlob = await fetchImageFromUri(imageUri);
+      try {
+        // Convert the image URI to a Blob and generate a unique filename
+        const imageArray = await fetchImageFromUri(imageUri);
+        const randomImageUUID = uuid.v4();
+        const filename = `${user?.id}/${randomImageUUID}.${imageUri.split('.').pop()}`;
 
-      const { data, error } = await supabase.storage
-        .from("posts")
-        .upload(`${user?.id}/${postId}/0`, imageBlob);
+        // Upload the image to Supabase storage
+        const { data: imageUploadData, error } = await supabase.storage
+          .from("posts")
+          .upload(filename, imageArray);
 
-      if (error) {
+        if (error) {
+          console.error("Error uploading image:", error);
+        }
+
+        // Get the public URL of the uploaded image
+        const publicUrl = supabase.storage
+          .from("posts")
+          .getPublicUrl(filename).data.publicUrl
+        setPublicImageUrl(publicUrl);
+      } catch (error) {
         console.error("Error uploading image:", error);
-      }
-
-      if (data) {
-        console.log("Image uploaded successfully:", data);
+        Alert.alert("Error uploading image");
       }
     }
   }
 
   async function createPost() {
-    console.log("Creating post...");
     try{
       const { data, error } = await supabase.from("posts").insert({
         title,
         description,
         user_id: user?.id,
+        media_url: publicImageUrl,
         media_type: selectedPostType
       }).select();
 
@@ -83,20 +90,13 @@ export default function AddPost() {
       }
 
       if (data) {
-        setPostId(data[0].id);
+        Alert.alert("Post created successfully");
       }
     } catch (error) {
       console.error("Error creating post:", error);
       Alert.alert("Error creating post");
     }
   }
-
-  const createPostMutation = useMutation({
-    mutationFn: async () => {
-      console.log("Creating post...");
-      await createPost();
-    }
-  });
 
   const handleAddTagButtonPress = () => {
     setTags([...tags, "New Tag"]);
@@ -110,29 +110,14 @@ export default function AddPost() {
 
   const handlePost = async () => {
     setLoading(true);
-    // if (selectedPostType === "photo" && image) {
-    //   const { data, error } = await supabase.storage
-    //     .from("posts")
-    //     .upload(`user-${user.data.user?.id}/posts/${postId}`, image);
-    //
-    //   if (error) {
-    //     console.error("Error uploading image:", error);
-    //   }
-    //
-    //   if (data) {
-    //     console.log("Image uploaded successfully:", data);
-    //   }
-    // }
-
-    // createPostMutation.mutate();
-    await createPost();
     await uploadImage();
+    await createPost();
     setLoading(false);
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.scrollView}>
+      <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.header}>
           <Text style={styles.title}>Create New Post</Text>
         </View>
@@ -227,15 +212,15 @@ export default function AddPost() {
           </View>
         </KeyboardAvoidingView>
 
-        <View style={styles.actionContainer}>
+        <KeyboardAvoidingView style={styles.actionContainer}>
           <TouchableOpacity style={styles.cancelButton}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.postButton} onPress={handlePost}>
             <Text style={styles.postButtonText}>Post</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
