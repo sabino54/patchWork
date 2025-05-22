@@ -6,21 +6,97 @@ import {
   TextInput,
   KeyboardAvoidingView,
   SafeAreaView,
+  Alert,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import { FontAwesome } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UploadImage } from "@/components/uploadImage";
+import { supabase } from "../../lib/supabase";
+import { User } from "@supabase/supabase-js";
 
 
 export default function AddPost() {
-  const [selectedPostType, setSelectedPostType] = useState<"photo" | "audio">(
-    "photo",
+  const [selectedPostType, setSelectedPostType] = useState<"image" | "audio">(
+    "image",
   );
-  const [image, setImage] = useState<string | null>(null);
-
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [postId, setPostId] = useState<string | null>(null);
+
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+
+  useEffect(() => {
+    // TODO: use session instead of getUser? getUser makes a network request, but idk if session does
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setLoading(false);
+    });
+  }, []);
+
+  const uploadImageMutation = useMutation({
+    // mutationFn: async (imageUri: string) => {
+    //   supabase.storage.from("posts").upload(`user-${user.data.user?.id}/posts/${postId}`)
+    // },
+  })
+
+  const fetchImageFromUri = async (uri) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    return blob;
+  };
+
+  async function uploadImage() {
+    if (imageUri) {
+      const imageBlob = await fetchImageFromUri(imageUri);
+
+      const { data, error } = await supabase.storage
+        .from("posts")
+        .upload(`${user?.id}/${postId}/0`, imageBlob);
+
+      if (error) {
+        console.error("Error uploading image:", error);
+      }
+
+      if (data) {
+        console.log("Image uploaded successfully:", data);
+      }
+    }
+  }
+
+  async function createPost() {
+    console.log("Creating post...");
+    try{
+      const { data, error } = await supabase.from("posts").insert({
+        title,
+        description,
+        user_id: user?.id,
+        media_type: selectedPostType
+      }).select();
+
+      if (error) {
+        console.error("Error creating post:", error);
+      }
+
+      if (data) {
+        setPostId(data[0].id);
+      }
+    } catch (error) {
+      console.error("Error creating post:", error);
+      Alert.alert("Error creating post");
+    }
+  }
+
+  const createPostMutation = useMutation({
+    mutationFn: async () => {
+      console.log("Creating post...");
+      await createPost();
+    }
+  });
 
   const handleAddTagButtonPress = () => {
     setTags([...tags, "New Tag"]);
@@ -32,6 +108,28 @@ export default function AddPost() {
     setTags(newTags);
   };
 
+  const handlePost = async () => {
+    setLoading(true);
+    // if (selectedPostType === "photo" && image) {
+    //   const { data, error } = await supabase.storage
+    //     .from("posts")
+    //     .upload(`user-${user.data.user?.id}/posts/${postId}`, image);
+    //
+    //   if (error) {
+    //     console.error("Error uploading image:", error);
+    //   }
+    //
+    //   if (data) {
+    //     console.log("Image uploaded successfully:", data);
+    //   }
+    // }
+
+    // createPostMutation.mutate();
+    await createPost();
+    await uploadImage();
+    setLoading(false);
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.scrollView}>
@@ -42,17 +140,17 @@ export default function AddPost() {
           <TouchableOpacity
             style={[
               styles.postTypeButton,
-              selectedPostType === "photo" && styles.selectedPostType,
+              selectedPostType === "image" && styles.selectedPostType,
             ]}
-            onPress={() => setSelectedPostType("photo")}
+            onPress={() => setSelectedPostType("image")}
           >
             <Text
               style={[
                 styles.postTypeText,
-                selectedPostType === "photo" && styles.selectedText,
+                selectedPostType === "image" && styles.selectedText,
               ]}
             >
-              Photo
+              Image
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -73,11 +171,11 @@ export default function AddPost() {
           </TouchableOpacity>
         </View>
 
-        {selectedPostType === "photo" && (
+        {selectedPostType === "image" && (
           <UploadImage 
-            imageUri={image}
+            imageUri={imageUri}
             onImageSelection={(uri) => {
-              setImage(uri);
+              setImageUri(uri);
             }}
           />
         )}
@@ -133,7 +231,7 @@ export default function AddPost() {
           <TouchableOpacity style={styles.cancelButton}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.postButton}>
+          <TouchableOpacity style={styles.postButton} onPress={handlePost}>
             <Text style={styles.postButtonText}>Post</Text>
           </TouchableOpacity>
         </View>
