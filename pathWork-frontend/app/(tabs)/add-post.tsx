@@ -5,16 +5,18 @@ import {
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
-  ScrollView,
-  SafeAreaView
+  SafeAreaView,
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { useState } from "react";
+import { UploadImage } from "@/components/uploadImage";
+
 
 export default function AddPost() {
   const [selectedPostType, setSelectedPostType] = useState<"photo" | "audio">(
     "photo",
   );
+  const [image, setImage] = useState<string | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
@@ -72,12 +74,12 @@ export default function AddPost() {
         </View>
 
         {selectedPostType === "photo" && (
-          <View style={styles.uploadContainer}>
-            <TouchableOpacity style={styles.uploadButton}>
-              <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
-              <Text style={styles.uploadText}>Upload Photo</Text>
-            </TouchableOpacity>
-          </View>
+          <UploadImage 
+            imageUri={image}
+            onImageSelection={(uri) => {
+              setImage(uri);
+            }}
+          />
         )}
 
         {selectedPostType === "audio" && (
