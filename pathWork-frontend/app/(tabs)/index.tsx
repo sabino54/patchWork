@@ -34,16 +34,39 @@ export default function Index() {
   async function fetchPosts() {
     setLoading(true);
     setError(null);
-    const { data, error } = await supabase
+
+    // Fetch posts with user info
+    const { data: postsData, error: postsError } = await supabase
       .from("posts")
       .select(`*, public_profiles (username, profile_photo)`)
       .order("created_at", { ascending: false });
-    if (error) {
+
+    if (postsError) {
       setError("Failed to load posts");
       setLoading(false);
       return;
     }
-    setPosts(data || []);
+
+    // Fetch all comments (or just counts per post)
+    const { data: commentsData, error: commentsError } = await supabase
+      .from("comments")
+      .select("post_id, id");
+
+    // Count comments per post
+    const commentCounts: Record<string, number> = {};
+    if (commentsData) {
+      commentsData.forEach((comment) => {
+        commentCounts[String(comment.post_id)] = (commentCounts[String(comment.post_id)] || 0) + 1;
+      });
+    }
+
+    // Attach comment count to each post
+    const postsWithComments = (postsData || []).map((post) => ({
+      ...post,
+      comments: commentCounts[String(post.id)] || 0,
+    }));
+
+    setPosts(postsWithComments);
     setLoading(false);
   }
 
@@ -64,7 +87,7 @@ export default function Index() {
         : require("../../assets/images/splash-icon.png"),
       title: post.title,
       text: post.description,
-      comments: 0, // Optionally fetch comment count
+      comments: post.comments ?? 0,
       category: post.tags && post.tags.length > 0 ? post.tags[0] : "Other",
       version: post.version || 1,
       projectId: post.project || post.id,
