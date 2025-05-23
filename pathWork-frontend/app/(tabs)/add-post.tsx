@@ -5,20 +5,69 @@ import {
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
+  SafeAreaView,
+  Alert,
   ScrollView,
-  SafeAreaView
+  ActivityIndicator,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import { FontAwesome } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { UploadImage } from "@/components/uploadImage";
+import { supabase } from "@/lib/supabase";
+import { User } from "@supabase/supabase-js";
+import { createPost, uploadImage } from "@/api/upload-post";
+import { useRouter } from "expo-router";
 
 export default function AddPost() {
-  const [selectedPostType, setSelectedPostType] = useState<"photo" | "audio">(
-    "photo",
-  );
+  const router = useRouter();
 
+  const [selectedPostType, setSelectedPostType] = useState<"image" | "audio">(
+    "image",
+  );
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+
+  const [user, setUser] = useState<User | null>(null);
+
+  // Fetch user on mount
+  useEffect(() => {
+    // TODO: use session instead of getUser? getUser makes a network request, but idk if session does
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+  }, []);
+
+  // Upload image mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: uploadImage,
+    onError: (error: Error) => {
+      console.error(error.message);
+      Alert.alert("Error", "Failed to upload image");
+    },
+  });
+
+  // Create post mutation
+  const createPostMutation = useMutation({
+    mutationFn: createPost,
+    onSuccess: () => {
+      Alert.alert("Success", "Post created successfully");
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setImageUri(null);
+      setTags([]);
+
+      // navigate to the home screen
+      router.navigate("/");
+    },
+    onError: (error: Error) => {
+      console.error(error.message);
+      Alert.alert("Error", "Failed to create post");
+    },
+  });
 
   const handleAddTagButtonPress = () => {
     setTags([...tags, "New Tag"]);
@@ -30,9 +79,59 @@ export default function AddPost() {
     setTags(newTags);
   };
 
+  // Loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePost = async () => {
+    if (!title.trim()) {
+      Alert.alert("Error", "Please enter a title for your post");
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert("Error", "You must be logged in to create a post");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // For image posts, upload the image first
+      if (selectedPostType === "image" && imageUri) {
+        // Upload the image and wait for it to complete
+        const uploadedImageUrl = await uploadImageMutation.mutateAsync({
+          imageUri,
+          userId: user.id,
+        });
+
+        // After successful image upload, create the post with the image URL
+        await createPostMutation.mutateAsync({
+          title,
+          description,
+          userId: user.id,
+          mediaUrl: uploadedImageUrl,
+          mediaType: selectedPostType,
+        });
+      } else {
+        // For audio posts or posts without media
+        await createPostMutation.mutateAsync({
+          title,
+          description,
+          userId: user.id,
+          mediaUrl: null,
+          mediaType: selectedPostType,
+        });
+      }
+    } catch (error) {
+      console.error("Error in post creation process:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.scrollView}>
+      <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.header}>
           <Text style={styles.title}>Create New Post</Text>
         </View>
@@ -40,17 +139,17 @@ export default function AddPost() {
           <TouchableOpacity
             style={[
               styles.postTypeButton,
-              selectedPostType === "photo" && styles.selectedPostType,
+              selectedPostType === "image" && styles.selectedPostType,
             ]}
-            onPress={() => setSelectedPostType("photo")}
+            onPress={() => setSelectedPostType("image")}
           >
             <Text
               style={[
                 styles.postTypeText,
-                selectedPostType === "photo" && styles.selectedText,
+                selectedPostType === "image" && styles.selectedText,
               ]}
             >
-              Photo
+              Image
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -71,13 +170,13 @@ export default function AddPost() {
           </TouchableOpacity>
         </View>
 
-        {selectedPostType === "photo" && (
-          <View style={styles.uploadContainer}>
-            <TouchableOpacity style={styles.uploadButton}>
-              <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
-              <Text style={styles.uploadText}>Upload Photo</Text>
-            </TouchableOpacity>
-          </View>
+        {selectedPostType === "image" && (
+          <UploadImage
+            imageUri={imageUri}
+            onImageSelection={(uri) => {
+              setImageUri(uri);
+            }}
+          />
         )}
 
         {selectedPostType === "audio" && (
@@ -127,15 +226,23 @@ export default function AddPost() {
           </View>
         </KeyboardAvoidingView>
 
-        <View style={styles.actionContainer}>
-          <TouchableOpacity style={styles.cancelButton}>
+        <KeyboardAvoidingView style={styles.actionContainer}>
+          <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.postButton}>
-            <Text style={styles.postButtonText}>Post</Text>
+          <TouchableOpacity
+            style={[styles.postButton, isSubmitting && styles.disabledButton]}
+            onPress={handlePost}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Text style={styles.postButtonText}>Post</Text>
+            )}
           </TouchableOpacity>
-        </View>
-      </View>
+        </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -284,5 +391,9 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: "#a084ca",
     fontSize: 20,
+  },
+  disabledButton: {
+    backgroundColor: "#ccc",
+    opacity: 0.7,
   },
 });
