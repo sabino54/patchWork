@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
   TextInput,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 
-import { mockData } from "../../components/mockData";
+import { supabase } from "../../lib/supabase";
 
 const categories = [
   "All",
@@ -22,6 +23,71 @@ const categories = [
 
 export default function Index() {
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  async function fetchPosts() {
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from("posts")
+      .select(`*, public_profiles (username, profile_photo)`)
+      .order("created_at", { ascending: false });
+    if (error) {
+      setError("Failed to load posts");
+      setLoading(false);
+      return;
+    }
+    setPosts(data || []);
+    setLoading(false);
+  }
+
+  // Helper to map Supabase post to UI post
+  function mapPost(post: any) {
+    return {
+      id: post.id,
+      user: post.public_profiles?.username
+        ? `@${post.public_profiles.username}`
+        : "@unknown",
+      userImage: post.public_profiles?.profile_photo
+        ? { uri: post.public_profiles.profile_photo }
+        : require("../../assets/images/splash-icon.png"),
+      time: timeAgo(post.created_at),
+      type: post.media_type || "image",
+      image: post.media_url
+        ? { uri: post.media_url }
+        : require("../../assets/images/splash-icon.png"),
+      title: post.title,
+      text: post.description,
+      comments: 0, // Optionally fetch comment count
+      category: post.tags && post.tags.length > 0 ? post.tags[0] : "Other",
+      version: post.version || 1,
+      projectId: post.project || post.id,
+    };
+  }
+
+  // Helper to format time ago
+  function timeAgo(dateString: string) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diff < 60) return `${diff} sec ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hour ago`;
+    return `${Math.floor(diff / 86400)} day ago`;
+  }
+
+  const filteredPosts = posts
+    .map(mapPost)
+    .filter(
+      (post) =>
+        selectedCategory === "All" || post.category === selectedCategory
+    );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -58,20 +124,25 @@ export default function Index() {
       </ScrollView>
 
       {/* Feed */}
-      <ScrollView style={styles.feed}>
-        {mockData
-          .filter(
-            (post) =>
-              selectedCategory === "All" || post.category === selectedCategory
-          )
-          .map((post) => (
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#8d5fd3" />
+        </View>
+      ) : error ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ color: "red" }}>{error}</Text>
+        </View>
+      ) : filteredPosts.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Text>No posts found.</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.feed}>
+          {filteredPosts.map((post) => (
             <View key={post.id} style={styles.postCard}>
               <View style={styles.postHeader}>
                 <Image
-                  source={
-                    post.userImage ||
-                    require("../../assets/images/splash-icon.png")
-                  }
+                  source={post.userImage}
                   style={styles.avatar}
                 />
                 <Text style={styles.username}>{post.user}</Text>
@@ -104,7 +175,8 @@ export default function Index() {
               <Text style={styles.comments}>{post.comments} comments</Text>
             </View>
           ))}
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
