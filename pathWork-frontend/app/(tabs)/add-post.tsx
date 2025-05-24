@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { FontAwesome } from "@expo/vector-icons";
@@ -16,15 +17,14 @@ import { useEffect, useState } from "react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
-import { createPost, PostMediaType, uploadImage } from "@/lib/posts";
+import { createPost, PostMediaType, uploadMedia } from "@/lib/posts";
 import { useRouter } from "expo-router";
 
 export default function AddPost() {
   const router = useRouter();
 
-  const [selectedPostType, setSelectedPostType] = useState<PostMediaType>(
-    "image",
-  );
+  const [selectedMediaType, setSelectedMediaType] =
+    useState<PostMediaType>("image");
   const [media, setMedia] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
@@ -43,17 +43,16 @@ export default function AddPost() {
   // Clear media when mediaType changes
   useEffect(() => {
     setMedia(null);
-  }, [selectedPostType]);
+  }, [selectedMediaType]);
 
-  // Upload image mutation
-  const uploadImageMutation = useMutation({
-    mutationFn: uploadImage,
+  // Upload media mutation
+  const uploadMediaMutation = useMutation({
+    mutationFn: uploadMedia,
     onError: (error: Error) => {
       console.error(error.message);
-      Alert.alert("Error", "Failed to upload image");
+      Alert.alert("Error", `Failed to upload ${selectedMediaType}`);
     },
   });
-
 
   // Create post mutation
   const createPostMutation = useMutation({
@@ -99,19 +98,27 @@ export default function AddPost() {
       return;
     }
 
-    if (selectedPostType !== "link" && !media) {
-      Alert.alert("Error", `Please upload a ${selectedPostType} for your post`);
+    if (selectedMediaType !== "link" && !media) {
+      Alert.alert(
+        "Error",
+        `Please upload a ${selectedMediaType} for your post`,
+      );
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // For media that needs to be uploaded (image, video)
-      if ((selectedPostType === "image" || selectedPostType === "video") && media) {
+      // For media that needs to be uploaded (image, video, audio)
+      if (
+        (selectedMediaType === "image" ||
+          selectedMediaType === "video" ||
+          selectedMediaType === "audio") &&
+        media
+      ) {
         // Upload the media and wait for it to complete
-        const uploadedMediaUrl = await uploadImageMutation.mutateAsync({
-          imageUri: media,
+        const uploadedMediaUrl = await uploadMediaMutation.mutateAsync({
+          mediaUri: media,
           userId: user.id,
         });
 
@@ -120,41 +127,20 @@ export default function AddPost() {
           title,
           description,
           userId: user.id,
-          mediaUrl: uploadedMediaUrl,
-          mediaType: selectedPostType,
-        });
-      } 
-      // For audio posts
-      else if (selectedPostType === "audio" && media) {
-        // For now, we're just storing the URI directly
-        // In a production app, you would upload the audio file to storage
-        await createPostMutation.mutateAsync({
-          title,
-          description,
-          userId: user.id,
-          mediaUrl: media,
-          mediaType: selectedPostType,
+          publicMediaUrl: uploadedMediaUrl,
+          mediaType: selectedMediaType,
         });
       }
+
       // For link posts
-      else if (selectedPostType === "link" && media) {
-        // For link posts, the imageUri contains the URL
+      else if (selectedMediaType === "link" && media) {
+        // For link posts, the mediaUrl contains the URL
         await createPostMutation.mutateAsync({
           title,
           description,
           userId: user.id,
-          mediaUrl: media,
-          mediaType: selectedPostType,
-        });
-      }
-      else {
-        // For posts without media
-        await createPostMutation.mutateAsync({
-          title,
-          description,
-          userId: user.id,
-          mediaUrl: null,
-          mediaType: selectedPostType,
+          publicMediaUrl: media,
+          mediaType: selectedMediaType,
         });
       }
     } catch (error) {
@@ -166,104 +152,110 @@ export default function AddPost() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollView}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Create New Post</Text>
         </View>
-        <View style={styles.postTypes}>
-          <TouchableOpacity
-            style={[
-              styles.postTypeButton,
-              selectedPostType === "image" && styles.selectedPostType,
-            ]}
-            onPress={() => setSelectedPostType("image")}
-          >
-            <Text
+        <ScrollView
+          contentContainerStyle={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.postTypes}>
+            <TouchableOpacity
               style={[
-                styles.postTypeText,
-                selectedPostType === "image" && styles.selectedText,
+                styles.postTypeButton,
+                selectedMediaType === "image" && styles.selectedPostType,
               ]}
+              onPress={() => setSelectedMediaType("image")}
             >
-              Image
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.postTypeButton,
-              selectedPostType === "video" && styles.selectedPostType,
-            ]}
-            onPress={() => setSelectedPostType("video")}
-          >
-            <Text
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "image" && styles.selectedText,
+                ]}
+              >
+                Image
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                styles.postTypeText,
-                selectedPostType === "video" && styles.selectedText,
+                styles.postTypeButton,
+                selectedMediaType === "video" && styles.selectedPostType,
               ]}
+              onPress={() => setSelectedMediaType("video")}
             >
-              Video
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.postTypeButton,
-              selectedPostType === "audio" && styles.selectedPostType,
-            ]}
-            onPress={() => setSelectedPostType("audio")}
-          >
-            <Text
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "video" && styles.selectedText,
+                ]}
+              >
+                Video
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                styles.postTypeText,
-                selectedPostType === "audio" && styles.selectedText,
+                styles.postTypeButton,
+                selectedMediaType === "audio" && styles.selectedPostType,
               ]}
+              onPress={() => setSelectedMediaType("audio")}
             >
-              Audio
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.postTypeButton,
-              selectedPostType === "link" && styles.selectedPostType,
-            ]}
-            onPress={() => setSelectedPostType("link")}
-          >
-            <Text
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "audio" && styles.selectedText,
+                ]}
+              >
+                Audio
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                styles.postTypeText,
-                selectedPostType === "link" && styles.selectedText,
+                styles.postTypeButton,
+                selectedMediaType === "link" && styles.selectedPostType,
               ]}
+              onPress={() => setSelectedMediaType("link")}
             >
-              Link
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "link" && styles.selectedText,
+                ]}
+              >
+                Link
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <MediaUploader
-          mediaType={selectedPostType}
-          mediaUri={media}
-          onMediaSelection={(uri: string) => {
-            setMedia(uri);
-          }}
-        />
+          <MediaUploader
+            mediaType={selectedMediaType}
+            mediaUri={media}
+            onMediaSelection={(uri: string) => {
+              setMedia(uri);
+            }}
+          />
 
-        <View style={styles.tagsContainer}>
-          {tags.map((tag, index) => (
-            <View key={index} style={styles.tagButton}>
-              <Text style={styles.tagText}>{tag}</Text>
-              <TouchableOpacity onPress={() => handleTagDelete(index)}>
-                <FontAwesome name="times" size={16} color={"white"} />
-              </TouchableOpacity>
-            </View>
-          ))}
+          <View style={styles.tagsContainer}>
+            {tags.map((tag, index) => (
+              <View key={index} style={styles.tagButton}>
+                <Text style={styles.tagText}>{tag}</Text>
+                <TouchableOpacity onPress={() => handleTagDelete(index)}>
+                  <FontAwesome name="times" size={16} color={"white"} />
+                </TouchableOpacity>
+              </View>
+            ))}
 
-          <TouchableOpacity
-            style={styles.addTagButton}
-            onPress={handleAddTagButtonPress}
-          >
-            <Text style={{}}>+ Add Tag</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={styles.addTagButton}
+              onPress={handleAddTagButtonPress}
+            >
+              <Text style={{}}>+ Add Tag</Text>
+            </TouchableOpacity>
+          </View>
 
-        <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
           <View style={styles.textContainer}>
             <TextInput
               placeholder="Enter a title"
@@ -281,25 +273,28 @@ export default function AddPost() {
               placeholderTextColor="#aaa"
             />
           </View>
-        </KeyboardAvoidingView>
 
-        <KeyboardAvoidingView style={styles.actionContainer}>
-          <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.postButton, isSubmitting && styles.disabledButton]}
-            onPress={handlePost}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <Text style={styles.postButtonText}>Post</Text>
-            )}
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </ScrollView>
+          <View style={styles.actionContainer}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.postButton, isSubmitting && styles.disabledButton]}
+              onPress={handlePost}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.postButtonText}>Post</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -310,10 +305,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f7f0fa",
   },
   scrollView: {
-    flex: 1,
+    flexGrow: 1,
     display: "flex",
     backgroundColor: "#f7f0fa",
     gap: 10,
+    paddingVertical: 10,
+    paddingBottom: 20,
   },
 
   // Header
@@ -401,11 +398,13 @@ const styles = StyleSheet.create({
 
   // Text Section
   textContainer: {
-    flex: 1,
+    height: 150,
     backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingVertical: 10,
+    flexDirection: "column",
     gap: 5,
+    flex: 0,
   },
   titleInput: {
     fontSize: 16,
@@ -413,11 +412,13 @@ const styles = StyleSheet.create({
   },
   descriptionInput: {
     fontSize: 16,
-    minHeight: 100,
+    overflow: "scroll",
+    flex: 1
   },
 
   // Action Section
   actionContainer: {
+    flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 10,
@@ -430,6 +431,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
+    height: 40,
   },
   postButtonText: {
     color: "white",
@@ -444,6 +446,7 @@ const styles = StyleSheet.create({
     borderColor: "#a084ca",
     alignItems: "center",
     justifyContent: "center",
+    height: 40,
   },
   cancelButtonText: {
     color: "#a084ca",

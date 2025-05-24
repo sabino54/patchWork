@@ -59,36 +59,36 @@ export async function getPosts(): Promise<Post[]> {
   return (data || []).map(transformPost);
 }
 
-// Helper function to convert image URI to array buffer
-const fetchImageFromUri = async (uri: string) => {
+// Helper function to convert media URI to array buffer
+const fetchMediaFromUri = async (uri: string) => {
   const response = await fetch(uri);
   const arrayBuffer = await response.arrayBuffer();
   return arrayBuffer;
 };
 
-export async function uploadImage({
-  imageUri,
+export async function uploadMedia({
+  mediaUri,
   userId,
 }: {
-  imageUri: string;
+  mediaUri: string;
   userId: string;
 }): Promise<string> {
-  // Convert the image URI to a Blob and generate a unique filename
-  const imageArray = await fetchImageFromUri(imageUri);
-  const randomImageUUID = uuid.v4();
-  const fileExtension = imageUri.split('.').pop();
-  const filename = `${userId}/${randomImageUUID}.${fileExtension}`;
+  // Convert the media URI to a Blob and generate a unique filename
+  const mediaArray = await fetchMediaFromUri(mediaUri);
+  const randomUUID = uuid.v4();
+  const fileExtension = mediaUri.split('.').pop();
+  const filename = `${userId}/${randomUUID}.${fileExtension}`;
 
-  // Upload the image to Supabase storage
+  // Upload the media to Supabase storage
   const { data, error } = await supabase.storage
     .from('posts')
-    .upload(filename, imageArray);
+    .upload(filename, mediaArray);
 
   if (error) {
-    throw new Error(`Error uploading image: ${error.message}`);
+    throw new Error(`Error uploading media: ${error.message}`);
   }
 
-  // Get the public URL of the uploaded image
+  // Get the public URL of the uploaded media
   const publicUrl = supabase.storage.from('posts').getPublicUrl(filename)
     .data.publicUrl;
 
@@ -99,13 +99,13 @@ export async function createPost({
   title,
   description,
   userId,
-  mediaUrl,
+  publicMediaUrl,
   mediaType,
 }: {
   title: string;
   description: string;
   userId: string;
-  mediaUrl: string | null;
+  publicMediaUrl: string | null;
   mediaType: PostMediaType;
 }): Promise<Post[]> {
   const { data, error } = await supabase
@@ -114,7 +114,7 @@ export async function createPost({
       title,
       description,
       user_id: userId,
-      media_url: mediaUrl,
+      media_url: publicMediaUrl,
       media_type: mediaType,
     })
     .select();
