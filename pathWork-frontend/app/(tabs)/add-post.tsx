@@ -22,7 +22,7 @@ import { useRouter } from "expo-router";
 export default function AddPost() {
   const router = useRouter();
 
-  const [selectedPostType, setSelectedPostType] = useState<"image" | "audio">(
+  const [selectedPostType, setSelectedPostType] = useState<"image" | "audio" | "video" | "link">(
     "image",
   );
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -155,6 +155,22 @@ export default function AddPost() {
           <TouchableOpacity
             style={[
               styles.postTypeButton,
+              selectedPostType === "video" && styles.selectedPostType,
+            ]}
+            onPress={() => setSelectedPostType("video")}
+          >
+            <Text
+              style={[
+                styles.postTypeText,
+                selectedPostType === "video" && styles.selectedText,
+              ]}
+            >
+              Video
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.postTypeButton,
               selectedPostType === "audio" && styles.selectedPostType,
             ]}
             onPress={() => setSelectedPostType("audio")}
@@ -168,10 +184,27 @@ export default function AddPost() {
               Audio
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.postTypeButton,
+              selectedPostType === "link" && styles.selectedPostType,
+            ]}
+            onPress={() => setSelectedPostType("link")}
+          >
+            <Text
+              style={[
+                styles.postTypeText,
+                selectedPostType === "link" && styles.selectedText,
+              ]}
+            >
+              Link
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {selectedPostType === "image" && (
+        {(selectedPostType === "image" || selectedPostType === "video") && (
           <UploadImage
+            mediaType={selectedPostType}
             imageUri={imageUri}
             onImageSelection={(uri) => {
               setImageUri(uri);

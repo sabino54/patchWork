@@ -5,11 +5,16 @@ import * as ImagePicker from "expo-image-picker";
 import { useState, useEffect } from "react";
 
 interface UploadImageProps {
-  imageUri: string | null;
-  onImageSelection: (imageUri: string) => void;
+  readonly mediaType: "image" | "video";
+  readonly imageUri: string | null;
+  readonly onImageSelection: (imageUri: string) => void;
 }
 
-export function UploadImage({ imageUri, onImageSelection }: UploadImageProps) {
+export function UploadImage({
+  mediaType,
+  imageUri,
+  onImageSelection,
+}: UploadImageProps) {
   const [image, setImage] = useState<string | null>(imageUri);
 
   // Update internal state when imageUri prop changes
