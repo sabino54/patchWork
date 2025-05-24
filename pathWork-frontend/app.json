@@ -40,7 +40,8 @@
           "photosPermission": "The app needs access to your photos to upload images."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

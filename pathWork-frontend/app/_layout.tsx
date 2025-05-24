@@ -57,6 +57,12 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="user/[username]"
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack>
     </QueryClientProvider>
   );

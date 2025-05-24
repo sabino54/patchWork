@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
   TextInput,
   SafeAreaView,
 } from "react-native";
-
-import { mockData } from "../../components/mockData";
+import { useRouter } from "expo-router";
+import { getPosts, Post } from "../../lib/posts";
+import VideoPlayer from "../../components/VideoPlayer";
+import LinkDisplay from "../../components/LinkDisplay";
+import AudioPlayer from "../../components/AudioPlayer";
 
 const categories = [
   "All",
@@ -19,9 +22,36 @@ const categories = [
   "Performance",
   "Writing & Language",
 ];
-
 export default function Index() {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  const loadPosts = async () => {
+    try {
+      const posts = await getPosts();
+      setPosts(posts);
+      setError(null);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+      console.error("Error loading posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserPress = (username: string) => {
+    console.log("username", username);
+    router.push(`/user/${username.replace("@", "")}`);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,51 +89,53 @@ export default function Index() {
 
       {/* Feed */}
       <ScrollView style={styles.feed}>
-        {mockData
-          .filter(
-            (post) =>
-              selectedCategory === "All" || post.category === selectedCategory
-          )
-          .map((post) => (
-            <View key={post.id} style={styles.postCard}>
-              <View style={styles.postHeader}>
-                <Image
-                  source={
-                    post.userImage ||
-                    require("../../assets/images/splash-icon.png")
-                  }
-                  style={styles.avatar}
-                />
-                <Text style={styles.username}>{post.user}</Text>
-                <View style={styles.versionBadge}>
-                  <Text style={styles.versionText}>v{post.version}</Text>
-                </View>
-                <Text style={styles.time}>{post.time}</Text>
+        {posts.map((post) => (
+          <View key={post.id} style={styles.postCard}>
+            <View style={styles.postHeader}>
+              <Image
+                source={require("../../assets/images/splash-icon.png")}
+                style={styles.avatar}
+              />
+              <TouchableOpacity onPress={() => handleUserPress(post.user_id)}>
+                {" "}
+                {/* TODO: Should be username  */}
+                <Text style={styles.username}>{post.user_id}</Text>
+              </TouchableOpacity>
+              <View style={styles.versionBadge}>
+                <Text style={styles.versionText}>v{post.version}</Text>{" "}
+                {/* TODO: add version to a post on supa */}
               </View>
-              {post.type === "image" && (
-                <Image source={post.image} style={styles.postImage} />
-              )}
-              {post.type === "audio" && (
-                <View style={styles.audioRow}>
-                  <Image source={post.image} style={styles.audioAvatar} />
-                  <View style={styles.audioWave}>
-                    <Text style={{ color: "#aaa" }}>[waveform]</Text>
-                  </View>
-                  <TouchableOpacity style={styles.audioPlayBtn}>
-                    <Text style={{ fontSize: 20, color: "#8d5fd3" }}>▶</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              <Text style={styles.postTitle}>{post.title}</Text>
-              <Text style={styles.postText}>{post.text}</Text>
-              <View style={styles.tagContainer}>
-                <View style={styles.tag}>
-                  <Text style={styles.tagText}>{post.category}</Text>
-                </View>
-              </View>
-              <Text style={styles.comments}>{post.comments} comments</Text>
+              <Text style={styles.time}>{post.created_at}</Text>
             </View>
-          ))}
+            {post.media_type === "image" && (
+              <Image
+                source={{ uri: post.media_url }}
+                style={styles.postImage}
+              />
+            )}
+            {post.media_type === "video" && (
+              <VideoPlayer url={post.media_url} />
+            )}
+            {post.media_type === "link" && <LinkDisplay url={post.media_url} />}
+            {post.media_type === "audio" && (
+              <AudioPlayer
+                url={post.media_url}
+                title={post.title}
+                artist={post.user_id}
+              />
+            )}
+            <Text style={styles.postTitle}>{post.title}</Text>
+            <Text style={styles.postText}>{post.description}</Text>
+            <View style={styles.tagContainer}>
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{post.project} COOL ART </Text>{" "}
+                {/* TODO: add tags to a post on supa */}
+              </View>
+            </View>
+            <Text style={styles.comments}> 0 comments</Text>{" "}
+            {/* TODO: grab comments to a post on supa */}
+          </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -149,21 +181,22 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e0d6f7",
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 17,
     color: "#6c6c6c",
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 4,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 6,
+    fontWeight: "500",
   },
   tabTextActive: {
     color: "#8d5fd3",
     fontWeight: "bold",
   },
   tabUnderline: {
-    height: 3,
+    height: 4,
     backgroundColor: "#8d5fd3",
     borderRadius: 2,
-    marginTop: 2,
+    marginTop: 4,
   },
   feed: {
     flex: 1,
@@ -192,7 +225,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: "bold",
-    color: "#333",
+    color: "#8d5fd3",
     marginRight: 8,
   },
   time: {
