@@ -19,6 +19,7 @@ export default function Account({ session }: { session: Session }) {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
 
   useEffect(() => {
     if (session) getProfile();
@@ -66,9 +67,11 @@ export default function Account({ session }: { session: Session }) {
   async function updateProfile({
     username,
     bio,
+    profilePhotoUrl,
   }: {
     username: string;
     bio: string;
+    profilePhotoUrl?: string;
   }) {
     try {
       setLoading(true);
@@ -79,6 +82,7 @@ export default function Account({ session }: { session: Session }) {
         id: session?.user.id,
         username,
         bio,
+        ...(profilePhotoUrl && { profile_photo: profilePhotoUrl }),
       };
 
       const { error } = await supabase.from("public_profiles").upsert(updates);
@@ -88,6 +92,11 @@ export default function Account({ session }: { session: Session }) {
         throw error;
       }
       console.log("Profile updated successfully");
+
+      // Update local state if profile photo was updated
+      if (profilePhotoUrl) {
+        setProfilePhoto(`${profilePhotoUrl}?t=${Date.now()}`);
+      }
     } catch (error) {
       console.error("Profile update error:", error);
       if (error instanceof Error) {
@@ -103,21 +112,43 @@ export default function Account({ session }: { session: Session }) {
       setLoading(true);
       if (!session?.user) throw new Error("No user on the session!");
 
-      console.log("Starting photo upload for user:", session.user.id);
-      const filePath = `user-${session.user.id}/profile.jpg`;
+      // Request permission to access the photo library
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Please grant permission to access your photos"
+        );
+        return;
+      }
 
-      // Get the local file URI
-      const imageUri = Image.resolveAssetSource(
-        require("../assets/images/SabinoCropped.jpeg"),
-      ).uri;
-      console.log("Local image URI:", imageUri);
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled) {
+        console.log("User cancelled image picker");
+        return;
+      }
+
+      const imageUri = result.assets[0].uri;
+      console.log("Selected image URI:", imageUri);
+
+      // Get file extension from URI
+      const fileExtension = imageUri.split(".").pop()?.toLowerCase() || "jpg";
+      const filePath = `user-${session.user.id}/profile.${fileExtension}`;
 
       // Create form data
       const formData = new FormData();
       formData.append("file", {
         uri: imageUri,
-        type: "image/jpeg",
-        name: "profile.jpg",
+        type: `image/${fileExtension === "jpg" ? "jpeg" : fileExtension}`,
+        name: `profile.${fileExtension}`,
       } as any);
 
       console.log("Uploading to Supabase storage...");
@@ -136,20 +167,23 @@ export default function Account({ session }: { session: Session }) {
 
       console.log("Getting public URL...");
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
-      console.log("Public URL:", data.publicUrl);
+      const publicUrl = data.publicUrl;
+      console.log("Public URL:", publicUrl);
 
-      setProfilePhoto(data.publicUrl);
-
-      console.log("Updating user profile with new photo URL...");
+      // Update the profile photo URL in the database
       const { error: updateError } = await supabase
         .from("public_profiles")
-        .update({ profile_photo: data.publicUrl })
+        .update({ profile_photo: publicUrl })
         .eq("id", session.user.id);
 
       if (updateError) {
         console.error("Profile update error:", updateError);
         Alert.alert("Error updating profile", updateError.message);
+        return;
       }
+
+      // Update local state with the new URL
+      setProfilePhoto(`${publicUrl}?t=${Date.now()}`);
       console.log("Photo upload completed successfully");
     } catch (error) {
       console.error("Photo upload error:", error);
@@ -238,9 +272,25 @@ export default function Account({ session }: { session: Session }) {
               numberOfLines={3}
             />
 
+            <Input
+              label="Profile Photo URL"
+              value={profilePhotoUrl}
+              onChangeText={(text) => setProfilePhotoUrl(text)}
+              leftIcon={{
+                type: "font-awesome",
+                name: "image",
+                color: "#8d5fd3",
+                style: { marginRight: 8 },
+              }}
+              inputContainerStyle={styles.inputContainer}
+              inputStyle={styles.input}
+              labelStyle={styles.label}
+              placeholder="Enter URL for your profile photo"
+            />
+
             <TouchableOpacity
               style={styles.updateButton}
-              onPress={() => updateProfile({ username, bio })}
+              onPress={() => updateProfile({ username, bio, profilePhotoUrl })}
               disabled={loading}
             >
               <Text style={styles.updateButtonText}>
