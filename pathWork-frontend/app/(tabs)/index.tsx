@@ -11,6 +11,8 @@ import {
   RefreshControl,
   Animated,
   ActivityIndicator,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { getPosts, Post } from "../../lib/posts";
@@ -41,6 +43,7 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState("");
   const animatedWidth = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(1)).current;
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const toggleSearch = () => {
     const toValue = isSearchVisible ? 0 : 1;
@@ -111,6 +114,14 @@ export default function Index() {
   const handleUserPress = (username: string) => {
     console.log("username", username);
     router.push(`/user/${username.replace("@", "")}`);
+  };
+
+  const handleImagePress = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+  };
+
+  const closeImageViewer = () => {
+    setSelectedImage(null);
   };
 
   return (
@@ -189,6 +200,26 @@ export default function Index() {
         ))}
       </ScrollView>
 
+      {/* Full Screen Image Viewer */}
+      <Modal
+        visible={!!selectedImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeImageViewer}
+      >
+        <TouchableOpacity
+          style={styles.modalContainer}
+          activeOpacity={1}
+          onPress={closeImageViewer}
+        >
+          <Image
+            source={{ uri: selectedImage || "" }}
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+      </Modal>
+
       {/* Feed */}
       <ScrollView
         style={styles.feed}
@@ -236,33 +267,47 @@ export default function Index() {
                 </View>
                 <Text style={styles.time}>{formatTime(post.created_at)}</Text>
               </View>
-              {post.media_type === "image" && (
-                <Image
-                  source={{ uri: post.media_url }}
-                  style={styles.postImage}
-                />
-              )}
-              {post.media_type === "video" && (
-                <VideoPlayer url={post.media_url} />
-              )}
-              {post.media_type === "link" && (
-                <LinkDisplay url={post.media_url} />
-              )}
-              {post.media_type === "audio" && (
-                <AudioPlayer
-                  url={post.media_url}
-                  title={post.title}
-                  artist={post.user.username}
-                />
-              )}
-              <Text style={styles.postTitle}>{post.title}</Text>
-              <Text style={styles.postText}>{post.description}</Text>
-              <View style={styles.tagContainer}>
-                <View style={styles.tag}>
-                  <Text style={styles.tagText}>{post.project} COOL ART</Text>
+              <View style={styles.mediaContainer}>
+                {post.media_type === "image" && (
+                  <TouchableOpacity
+                    onPress={() => handleImagePress(post.media_url)}
+                  >
+                    <Image
+                      source={{ uri: post.media_url }}
+                      style={styles.postImage}
+                    />
+                  </TouchableOpacity>
+                )}
+                {post.media_type === "video" && (
+                  <VideoPlayer url={post.media_url} />
+                )}
+                {post.media_type === "link" && (
+                  <View style={styles.linkContainer}>
+                    <LinkDisplay url={post.media_url} />
+                  </View>
+                )}
+                {post.media_type === "audio" && (
+                  <AudioPlayer
+                    url={post.media_url}
+                    title={post.title}
+                    artist={post.user.username}
+                  />
+                )}
+              </View>
+              <View style={styles.postContent}>
+                <Text style={styles.postTitle}>{post.title}</Text>
+                <Text style={styles.postText}>{post.description}</Text>
+                <View style={styles.postFooter}>
+                  <View style={styles.tagContainer}>
+                    <View style={styles.tag}>
+                      <Text style={styles.tagText}>
+                        {post.project} COOL ART
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.comments}>0 comments</Text>
                 </View>
               </View>
-              <Text style={styles.comments}>0 comments</Text>
             </View>
           ))
         )}
@@ -335,16 +380,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 14,
     margin: 12,
-    padding: 14,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
+    overflow: "hidden",
   },
   postHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 8,
+    padding: 14,
   },
   avatar: {
     width: 32,
@@ -362,11 +408,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: "auto",
   },
+  mediaContainer: {
+    width: "100%",
+  },
+  postContent: {
+    padding: 14,
+  },
   postImage: {
     width: "100%",
     height: 180,
-    borderRadius: 10,
-    marginBottom: 10,
     backgroundColor: "#eee",
   },
   audioRow: {
@@ -410,7 +460,6 @@ const styles = StyleSheet.create({
   comments: {
     color: "#8d5fd3",
     fontSize: 13,
-    marginTop: 2,
     fontWeight: "500",
   },
   bottomNav: {
@@ -455,10 +504,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#8d5fd3",
   },
+  postFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
   tagContainer: {
     flexDirection: "row",
-    marginTop: 8,
-    marginBottom: 4,
   },
   tag: {
     backgroundColor: "#f2e9fa",
@@ -544,5 +597,20 @@ const styles = StyleSheet.create({
   noResultsText: {
     color: "#666",
     fontSize: 16,
+  },
+  linkContainer: {
+    paddingLeft: 14,
+    paddingRight: 14,
+    marginBottom: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullScreenImage: {
+    width: Dimensions.get("window").width,
+    height: Dimensions.get("window").height,
   },
 });
