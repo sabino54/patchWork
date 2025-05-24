@@ -33,7 +33,12 @@ function transformPost(data: any): Post {
     tags: data.tags,
     project: data.project,
     version: data.version,
-    user: data.user,
+    user: {
+      ...data.user,
+      profile_photo: data.user.profile_photo
+        ? `${data.user.profile_photo}?t=${Date.now()}`
+        : null,
+    },
   };
 }
 
