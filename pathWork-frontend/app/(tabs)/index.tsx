@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,17 @@ import {
   TouchableOpacity,
   TextInput,
   SafeAreaView,
+  RefreshControl,
+  Animated,
+  ActivityIndicator,
 } from "react-native";
-
-import { mockData } from "../../components/mockData";
+import { useRouter } from "expo-router";
+import { getPosts, Post } from "../../lib/posts";
+import VideoPlayer from "../../components/VideoPlayer";
+import LinkDisplay from "../../components/LinkDisplay";
+import AudioPlayer from "../../components/AudioPlayer";
+import formatTime from "../../components/timeFormat";
+import { Ionicons } from "@expo/vector-icons";
 
 const categories = [
   "All",
@@ -18,10 +26,92 @@ const categories = [
   "Visual Arts",
   "Performance",
   "Writing & Language",
-];
+] as const;
 
 export default function Index() {
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const router = useRouter();
+  const [selectedCategory, setSelectedCategory] =
+    useState<(typeof categories)[number]>("All");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const animatedWidth = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(1)).current;
+
+  const toggleSearch = () => {
+    const toValue = isSearchVisible ? 0 : 1;
+    setIsSearchVisible(!isSearchVisible);
+
+    Animated.parallel([
+      Animated.timing(animatedWidth, {
+        toValue,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(textOpacity, {
+        toValue: isSearchVisible ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredPosts(posts);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const filtered = posts.filter((post) => {
+      const title = post.title?.toLowerCase() || "";
+      const description = post.description?.toLowerCase() || "";
+      const username = post.user?.username?.toLowerCase() || "";
+      const project = post.project?.toLowerCase() || "";
+
+      return (
+        title.includes(query) ||
+        description.includes(query) ||
+        username.includes(query) ||
+        project.includes(query)
+      );
+    });
+    setFilteredPosts(filtered);
+  }, [searchQuery, posts]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadPosts().finally(() => setRefreshing(false));
+  }, []);
+
+  const loadPosts = async () => {
+    try {
+      const posts = await getPosts();
+      setPosts(posts);
+      setFilteredPosts(posts);
+      setError(null);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+      console.error("Error loading posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserPress = (username: string) => {
+    console.log("username", username);
+    router.push(`/user/${username.replace("@", "")}`);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -32,7 +122,49 @@ export default function Index() {
             source={require("../../assets/images/LOGO.png")}
             style={styles.logo}
           />
-          <Text style={styles.headerText}>Patchwork</Text>
+          <Animated.Text style={[styles.headerText, { opacity: textOpacity }]}>
+            Patchwork
+          </Animated.Text>
+        </View>
+        <View style={styles.searchContainer}>
+          <Animated.View
+            style={[
+              styles.searchBar,
+              {
+                width: animatedWidth.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 200],
+                }),
+              },
+            ]}
+          >
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onBlur={() => {
+                if (!searchQuery) {
+                  toggleSearch();
+                }
+              }}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                style={styles.clearButton}
+              >
+                <Ionicons name="close-circle" size={20} color="#8d5fd3" />
+              </TouchableOpacity>
+            )}
+          </Animated.View>
+          <TouchableOpacity
+            onPress={toggleSearch}
+            style={styles.searchIcon}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="search" size={24} color="#8d5fd3" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -58,52 +190,82 @@ export default function Index() {
       </ScrollView>
 
       {/* Feed */}
-      <ScrollView style={styles.feed}>
-        {mockData
-          .filter(
-            (post) =>
-              selectedCategory === "All" || post.category === selectedCategory
-          )
-          .map((post) => (
+      <ScrollView
+        style={styles.feed}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#8d5fd3"]}
+            tintColor="#8d5fd3"
+          />
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#8d5fd3" />
+            <Text style={styles.loadingText}>Loading posts...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : filteredPosts.length === 0 ? (
+          <View style={styles.noResultsContainer}>
+            <Text style={styles.noResultsText}>
+              {searchQuery
+                ? "No posts found matching your search"
+                : "No posts available"}
+            </Text>
+          </View>
+        ) : (
+          filteredPosts.map((post) => (
             <View key={post.id} style={styles.postCard}>
               <View style={styles.postHeader}>
                 <Image
-                  source={
-                    post.userImage ||
-                    require("../../assets/images/splash-icon.png")
-                  }
+                  source={{ uri: post.user.profile_photo }}
                   style={styles.avatar}
                 />
-                <Text style={styles.username}>{post.user}</Text>
+                <TouchableOpacity
+                  onPress={() => handleUserPress(post.user.username)}
+                >
+                  <Text style={styles.username}>{post.user.username}</Text>
+                </TouchableOpacity>
                 <View style={styles.versionBadge}>
                   <Text style={styles.versionText}>v{post.version}</Text>
                 </View>
-                <Text style={styles.time}>{post.time}</Text>
+                <Text style={styles.time}>{formatTime(post.created_at)}</Text>
               </View>
-              {post.type === "image" && (
-                <Image source={post.image} style={styles.postImage} />
+              {post.media_type === "image" && (
+                <Image
+                  source={{ uri: post.media_url }}
+                  style={styles.postImage}
+                />
               )}
-              {post.type === "audio" && (
-                <View style={styles.audioRow}>
-                  <Image source={post.image} style={styles.audioAvatar} />
-                  <View style={styles.audioWave}>
-                    <Text style={{ color: "#aaa" }}>[waveform]</Text>
-                  </View>
-                  <TouchableOpacity style={styles.audioPlayBtn}>
-                    <Text style={{ fontSize: 20, color: "#8d5fd3" }}>▶</Text>
-                  </TouchableOpacity>
-                </View>
+              {post.media_type === "video" && (
+                <VideoPlayer url={post.media_url} />
+              )}
+              {post.media_type === "link" && (
+                <LinkDisplay url={post.media_url} />
+              )}
+              {post.media_type === "audio" && (
+                <AudioPlayer
+                  url={post.media_url}
+                  title={post.title}
+                  artist={post.user.username}
+                />
               )}
               <Text style={styles.postTitle}>{post.title}</Text>
-              <Text style={styles.postText}>{post.text}</Text>
+              <Text style={styles.postText}>{post.description}</Text>
               <View style={styles.tagContainer}>
                 <View style={styles.tag}>
-                  <Text style={styles.tagText}>{post.category}</Text>
+                  <Text style={styles.tagText}>{post.project} COOL ART</Text>
                 </View>
               </View>
-              <Text style={styles.comments}>{post.comments} comments</Text>
+              <Text style={styles.comments}>0 comments</Text>
             </View>
-          ))}
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -117,10 +279,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     paddingBottom: 10,
     paddingHorizontal: 20,
     backgroundColor: "#f7f0fa",
+    justifyContent: "space-between",
   },
   logo: {
     width: 50,
@@ -137,7 +299,6 @@ const styles = StyleSheet.create({
   headerCenter: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
   },
   tabs: {
     flexGrow: 0,
@@ -149,21 +310,22 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e0d6f7",
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 17,
     color: "#6c6c6c",
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 4,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 6,
+    fontWeight: "500",
   },
   tabTextActive: {
     color: "#8d5fd3",
     fontWeight: "bold",
   },
   tabUnderline: {
-    height: 3,
+    height: 4,
     backgroundColor: "#8d5fd3",
     borderRadius: 2,
-    marginTop: 2,
+    marginTop: 4,
   },
   feed: {
     flex: 1,
@@ -192,7 +354,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: "bold",
-    color: "#333",
+    color: "#8d5fd3",
     marginRight: 8,
   },
   time: {
@@ -322,5 +484,65 @@ const styles = StyleSheet.create({
     color: "#8d5fd3",
     fontSize: 11,
     fontWeight: "600",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: "auto",
+    marginRight: 10,
+    height: 36,
+    position: "relative",
+  },
+  searchBar: {
+    height: 36,
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    overflow: "hidden",
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#e0d6f7",
+    position: "absolute",
+    right: 40,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  searchInput: {
+    flex: 1,
+    height: "100%",
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: "#333",
+  },
+  clearButton: {
+    padding: 4,
+    marginRight: 8,
+  },
+  searchIcon: {
+    padding: 4,
+    zIndex: 2,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#8d5fd3",
+    fontSize: 16,
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#ff4444",
+    fontSize: 16,
+  },
+  noResultsContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  noResultsText: {
+    color: "#666",
+    fontSize: 16,
   },
 });

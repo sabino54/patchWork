@@ -32,11 +32,7 @@ export default function ArtworkFolders({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Artwork Folders</Text>
-        <TouchableOpacity style={styles.newFolderButton}>
-          <Ionicons name="add-circle-outline" size={24} color="#8d5fd3" />
-          <Text style={styles.newFolderText}>New Folder</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>Your Projects</Text>
       </View>
 
       <View style={styles.grid}>

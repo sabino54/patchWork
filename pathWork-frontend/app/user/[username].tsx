@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  SafeAreaView
+  SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useState, useEffect } from "react";
 import React from "react";
@@ -17,6 +17,7 @@ import ArtworkFolders from "../../components/ArtworkFolders";
 
 export default function UserProfile() {
   const router = useRouter();
+  const { username } = useLocalSearchParams();
   const [userData, setUserData] = useState<{
     username: string;
     bio: string;
@@ -27,21 +28,15 @@ export default function UserProfile() {
 
   useEffect(() => {
     fetchUserProfile();
-  }, []);
+  }, [username]);
 
   async function fetchUserProfile() {
     try {
       setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) throw new Error("No user found");
-
       const { data, error } = await supabase
         .from("public_profiles")
         .select("username, bio, profile_photo")
-        .eq("id", user.id)
+        .eq("username", username)
         .single();
 
       if (error) throw error;
@@ -61,50 +56,9 @@ export default function UserProfile() {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-
-    // Start both the fetch and the delay
-    const fetchPromise = fetchUserProfile();
-    const delayPromise = new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Wait for both to complete
-    await Promise.all([fetchPromise, delayPromise]);
-
-    // Add a small delay before hiding the indicator
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await fetchUserProfile();
     setRefreshing(false);
   }, []);
-
-  const handleFolderPress = (folderId: string) => {
-    router.push({
-      pathname: "/folder/[id]",
-      params: { id: folderId },
-    });
-  };
-
-  // Mock data for folders - replace with actual data from your backend
-  const mockFolders = [
-    {
-      id: "1",
-      title: "Digital Paintings",
-      thumbnail: "https://picsum.photos/200",
-      versionCount: 5,
-      lastUpdated: "2 days ago",
-    },
-    {
-      id: "2",
-      title: "Character Designs",
-      thumbnail: "https://picsum.photos/201",
-      versionCount: 3,
-      lastUpdated: "1 week ago",
-    },
-    {
-      id: "3",
-      title: "Landscape Studies",
-      thumbnail: "https://picsum.photos/202",
-      versionCount: 8,
-      lastUpdated: "3 days ago",
-    },
-  ];
 
   if (loading) {
     return null;
@@ -127,10 +81,10 @@ export default function UserProfile() {
       >
         <View style={styles.header}>
           <TouchableOpacity
-            style={{ position: "absolute", right: 20, top: 20, zIndex: 1 }}
-            onPress={() => router.push("../account")}
+            style={{ position: "absolute", left: 20, top: 20, zIndex: 1 }}
+            onPress={() => router.back()}
           >
-            <Ionicons name="settings-outline" size={28} color="#666" />
+            <Ionicons name="arrow-back" size={28} color="#666" />
           </TouchableOpacity>
           <Image
             source={{ uri: userData?.profile_photo }}
@@ -160,10 +114,7 @@ export default function UserProfile() {
           </Text>
         </View>
 
-        <ArtworkFolders
-          folders={mockFolders}
-          onFolderPress={handleFolderPress}
-        />
+        <ArtworkFolders folders={[]} onFolderPress={() => {}} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -193,18 +144,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     marginTop: 5,
-  },
-  adminBadge: {
-    backgroundColor: "#a084ca",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  adminText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
   },
   statsContainer: {
     flexDirection: "row",

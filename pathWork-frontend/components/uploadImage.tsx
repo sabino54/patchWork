@@ -1,3 +1,4 @@
+import React from "react";
 import { Image, View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
