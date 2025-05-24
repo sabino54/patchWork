@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 import { UploadImage } from "@/components/uploadImage";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
-import { createPost, uploadImage } from "@/api/upload-post";
+import { createPost, uploadImage } from "@/lib/posts";
 import { useRouter } from "expo-router";
 
 export default function AddPost() {
