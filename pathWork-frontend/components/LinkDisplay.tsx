@@ -9,9 +9,13 @@ import { MaterialIcons } from "@expo/vector-icons";
 
 interface LinkDisplayProps {
   url: string;
+  backgroundColor?: string;
 }
 
-const LinkDisplay = ({ url }: LinkDisplayProps) => {
+const LinkDisplay = ({
+  url,
+  backgroundColor = "#F2F2F7",
+}: LinkDisplayProps) => {
   const handlePress = async () => {
     try {
       await Linking.openURL(url);
@@ -32,7 +36,7 @@ const LinkDisplay = ({ url }: LinkDisplayProps) => {
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={{ ...styles.container, backgroundColor }}
       onPress={handlePress}
       activeOpacity={0.7}
     >
@@ -54,7 +58,7 @@ const LinkDisplay = ({ url }: LinkDisplayProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#F2F2F7",
+    width: "100%",
     borderRadius: 12,
     padding: 12,
     marginVertical: 8,
@@ -78,5 +82,4 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
   },
 });
-
 export default LinkDisplay;

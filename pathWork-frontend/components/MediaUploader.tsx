@@ -9,11 +9,12 @@ import {
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState, useEffect } from "react";
-import { Video, Audio } from "expo-av";
 import { PostMediaType } from "@/lib/posts";
 import * as DocumentPicker from "expo-document-picker";
 import AudioPlayer from "./AudioPlayer";
 import VideoPlayer from "./VideoPlayer";
+import LinkDisplay from "./LinkDisplay";
+import React from "react";
 
 interface MediaUploaderProps {
   readonly mediaType: PostMediaType;
@@ -34,6 +35,11 @@ export function MediaUploader({
   useEffect(() => {
     setMedia(mediaUri);
   }, [mediaUri]);
+
+  // Clear media when mediaType changes
+  useEffect(() => {
+    setMedia(null);
+  }, [mediaType]);
 
   const pickMedia = async () => {
     if (mediaType === "image" || mediaType === "video") {
@@ -126,13 +132,7 @@ export function MediaUploader({
         <View style={styles.linkContainer}>
           {media ? (
             <View style={styles.linkPreview}>
-              <Text
-                style={styles.linkText}
-                numberOfLines={1}
-                ellipsizeMode="middle"
-              >
-                {media}
-              </Text>
+              <LinkDisplay url={media} backgroundColor={"#ffffff"} />
               <TouchableOpacity
                 style={styles.changeMediaButton}
                 onPress={() => setMedia(null)}
@@ -237,7 +237,6 @@ const styles = StyleSheet.create({
   // Audio Player
   audioContainer: {
     width: "100%",
-    backgroundColor: "#f0f0f0",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
@@ -250,8 +249,6 @@ const styles = StyleSheet.create({
   // Link Input
   linkContainer: {
     width: "100%",
-    minHeight: 200,
-    backgroundColor: "#f0f0f0",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
@@ -284,17 +281,9 @@ const styles = StyleSheet.create({
   },
   linkPreview: {
     width: "100%",
-    backgroundColor: "#ffffff",
     borderRadius: 8,
     padding: 15,
-    minHeight: 100,
     justifyContent: "center",
-    position: "relative",
-  },
-  linkText: {
-    fontSize: 16,
-    color: "#0066cc",
-    textDecorationLine: "underline",
-    marginBottom: 40,
+    alignItems: "center",
   },
 });
