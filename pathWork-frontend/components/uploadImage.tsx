@@ -3,46 +3,46 @@ import { Image, View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState, useEffect } from "react";
+import { Video } from "expo-av";
 
 interface UploadImageProps {
   readonly mediaType: "image" | "video";
-  readonly imageUri: string | null;
-  readonly onImageSelection: (imageUri: string) => void;
+  readonly mediaUri: string | null;
+  readonly onMediaSelection: (mediaUri: string) => void;
 }
 
 export function UploadImage({
   mediaType,
-  imageUri,
-  onImageSelection,
+  mediaUri,
+  onMediaSelection,
 }: UploadImageProps) {
-  const [image, setImage] = useState<string | null>(imageUri);
+  const [media, setMedia] = useState<string | null>(mediaUri);
 
   // Update internal state when imageUri prop changes
   useEffect(() => {
-    setImage(imageUri);
-  }, [imageUri]);
+    setMedia(mediaUri);
+  }, [mediaUri]);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: mediaType === "image" ? ["images"] : ["videos"],
       allowsEditing: true,
-      aspect: [4, 3],
       quality: 1,
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
-      onImageSelection(result.assets[0].uri);
+      setMedia(result.assets[0].uri);
+      onMediaSelection(result.assets[0].uri);
     }
   };
 
   return (
     <>
-      {image && (
+      {media && mediaType === "image" && (
         <View>
           <Image
-            source={{ uri: image }}
-            style={{ width: "100%", height: 200, borderRadius: 10 }}
+            source={{ uri: media }}
+            style={{ width: "100%", minHeight: 400 }}
           />
           <TouchableOpacity
             style={styles.changeImageButton}
@@ -53,11 +53,27 @@ export function UploadImage({
           </TouchableOpacity>
         </View>
       )}
-      {!image && (
+      {media && mediaType === "video" && (
+        <View>
+          <Video
+            source={{ uri: media }}
+            style={{ width: "100%", minHeight: 400 }}
+            useNativeControls
+          />
+          <TouchableOpacity
+            style={styles.changeImageButton}
+            onPress={pickImage}
+          >
+            <FontAwesome name="refresh" size={16} color="#ffffff" />
+            <Text style={styles.changeImageText}>Change Video</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {!media && (
         <View style={styles.uploadContainer}>
           <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
             <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
-            <Text style={styles.uploadText}>Upload Photo</Text>
+            <Text style={styles.uploadText}>Upload {mediaType}</Text>
           </TouchableOpacity>
         </View>
       )}

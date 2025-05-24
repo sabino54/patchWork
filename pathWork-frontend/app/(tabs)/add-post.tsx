@@ -205,8 +205,8 @@ export default function AddPost() {
         {(selectedPostType === "image" || selectedPostType === "video") && (
           <UploadImage
             mediaType={selectedPostType}
-            imageUri={imageUri}
-            onImageSelection={(uri) => {
+            mediaUri={imageUri}
+            onMediaSelection={(uri) => {
               setImageUri(uri);
             }}
           />
