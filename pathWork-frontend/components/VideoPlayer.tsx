@@ -9,7 +9,7 @@ const VideoPlayer = ({ url }: { url: string }) => {
   const [showControls, setShowControls] = useState(true);
 
   return (
-    <View>
+    <>
       <VideoView
         style={styles.postImage}
         player={player}
@@ -34,7 +34,7 @@ const VideoPlayer = ({ url }: { url: string }) => {
           </Text>
         </TouchableOpacity>
       )}
-    </View>
+    </>
   );
 };
 const styles = StyleSheet.create({
