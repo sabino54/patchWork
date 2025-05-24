@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   TextInput,
+  Alert,
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -15,6 +16,9 @@ import * as DocumentPicker from "expo-document-picker";
 import AudioPlayer from "./AudioPlayer";
 import VideoPlayer from "./VideoPlayer";
 import LinkDisplay from "./LinkDisplay";
+import React from "react";
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
 
 interface MediaUploaderProps {
   readonly mediaType: PostMediaType;
@@ -41,6 +45,27 @@ export function MediaUploader({
     setMedia(null);
   }, [mediaType]);
 
+  const checkFileSize = async (uri: string): Promise<boolean> => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const fileSize = blob.size;
+      
+      if (fileSize > MAX_FILE_SIZE) {
+        Alert.alert(
+          "File Too Large",
+          `The file size (${(fileSize / (1024 * 1024)).toFixed(2)}MB) exceeds the maximum limit of 50MB.`
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Error checking file size:", error);
+      Alert.alert("Error", "Failed to check file size");
+      return false;
+    }
+  };
+
   const pickMedia = async () => {
     if (mediaType === "image" || mediaType === "video") {
       let result = await ImagePicker.launchImageLibraryAsync({
@@ -50,8 +75,11 @@ export function MediaUploader({
       });
 
       if (!result.canceled) {
-        setMedia(result.assets[0].uri);
-        onMediaSelection(result.assets[0].uri);
+        const isSizeValid = await checkFileSize(result.assets[0].uri);
+        if (isSizeValid) {
+          setMedia(result.assets[0].uri);
+          onMediaSelection(result.assets[0].uri);
+        }
       }
     } else if (mediaType === "audio") {
       try {
@@ -61,9 +89,12 @@ export function MediaUploader({
         });
 
         if (result.canceled === false) {
-          setMedia(result.assets[0].uri);
-          setFilename(result.assets[0].name);
-          onMediaSelection(result.assets[0].uri);
+          const isSizeValid = await checkFileSize(result.assets[0].uri);
+          if (isSizeValid) {
+            setMedia(result.assets[0].uri);
+            setFilename(result.assets[0].name);
+            onMediaSelection(result.assets[0].uri);
+          }
         }
       } catch (error) {
         console.error("Error picking audio file:", error);
