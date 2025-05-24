@@ -19,6 +19,15 @@ const AudioPlayer = ({
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
 
+  // Clean up audio resources when component unmounts
+  useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
+
   useEffect(() => {
     loadAudio();
     return () => {
@@ -33,7 +42,7 @@ const AudioPlayer = ({
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: url },
         { shouldPlay: false },
-        onPlaybackStatusUpdate
+        onPlaybackStatusUpdate,
       );
       setSound(newSound);
     } catch (error) {
@@ -71,10 +80,10 @@ const AudioPlayer = ({
   return (
     <View style={styles.container}>
       <View style={styles.audioContent}>
-        <Image
-          source={require("../assets/images/splash-icon.png")}
-          style={styles.audioAvatar}
-        />
+        {/* <Image */}
+        {/*   source={require("../assets/images/splash-icon.png")} */}
+        {/*   style={styles.audioAvatar} */}
+        {/* /> */}
         <View style={styles.infoContainer}>
           <Text style={styles.title} numberOfLines={1}>
             {title}
@@ -111,6 +120,7 @@ const AudioPlayer = ({
 
 const styles = StyleSheet.create({
   container: {
+    width: "100%",
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,

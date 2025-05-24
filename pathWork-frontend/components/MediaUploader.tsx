@@ -1,10 +1,19 @@
-import { Image, View, TouchableOpacity, Text, StyleSheet, TextInput } from "react-native";
+import {
+  Image,
+  View,
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  TextInput,
+} from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState, useEffect } from "react";
 import { Video, Audio } from "expo-av";
 import { PostMediaType } from "@/lib/posts";
 import * as DocumentPicker from "expo-document-picker";
+import AudioPlayer from "./AudioPlayer";
+import VideoPlayer from "./VideoPlayer";
 
 interface MediaUploaderProps {
   readonly mediaType: PostMediaType;
@@ -19,27 +28,17 @@ export function MediaUploader({
 }: MediaUploaderProps) {
   const [media, setMedia] = useState<string | null>(mediaUri);
   const [linkInput, setLinkInput] = useState<string>("");
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [filename, setFilename] = useState<string>("");
 
   // Update internal state when mediaUri prop changes
   useEffect(() => {
     setMedia(mediaUri);
   }, [mediaUri]);
 
-  // Clean up audio resources when component unmounts
-  useEffect(() => {
-    return sound
-      ? () => {
-          sound.unloadAsync();
-        }
-      : undefined;
-  }, [sound]);
-
   const pickMedia = async () => {
     if (mediaType === "image" || mediaType === "video") {
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: mediaType === "image" ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: mediaType === "image" ? ["images"] : ["videos"],
         allowsEditing: true,
         quality: 1,
       });
@@ -57,6 +56,7 @@ export function MediaUploader({
 
         if (result.canceled === false) {
           setMedia(result.assets[0].uri);
+          setFilename(result.assets[0].name);
           onMediaSelection(result.assets[0].uri);
         }
       } catch (error) {
@@ -72,31 +72,11 @@ export function MediaUploader({
     }
   };
 
-  const handlePlayPauseAudio = async () => {
-    if (!media) return;
-
-    if (sound === null) {
-      // Load the audio file
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri: media });
-      setSound(newSound);
-      await newSound.playAsync();
-      setIsPlaying(true);
-    } else {
-      // Toggle play/pause
-      if (isPlaying) {
-        await sound.pauseAsync();
-      } else {
-        await sound.playAsync();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
   return (
     <>
       {/* Image Media */}
       {media && mediaType === "image" && (
-        <View>
+        <View style={styles.imageContainer}>
           <Image
             source={{ uri: media }}
             style={{ width: "100%", minHeight: 400 }}
@@ -113,12 +93,13 @@ export function MediaUploader({
 
       {/* Video Media */}
       {media && mediaType === "video" && (
-        <View>
-          <Video
-            source={{ uri: media }}
-            style={{ width: "100%", minHeight: 400 }}
-            useNativeControls
-          />
+        <View style={styles.videoContainer}>
+          {/* <Video */}
+          {/*   source={{ uri: media }} */}
+          {/*   style={{ width: "100%", minHeight: 400 }} */}
+          {/*   useNativeControls */}
+          {/* /> */}
+          <VideoPlayer url={media} />
           <TouchableOpacity
             style={styles.changeMediaButton}
             onPress={pickMedia}
@@ -133,19 +114,7 @@ export function MediaUploader({
       {media && mediaType === "audio" && (
         <View style={styles.audioContainer}>
           <View style={styles.audioPlayer}>
-            <TouchableOpacity 
-              style={styles.audioPlayButton} 
-              onPress={handlePlayPauseAudio}
-            >
-              <FontAwesome 
-                name={isPlaying ? "pause" : "play"} 
-                size={24} 
-                color="#a084ca" 
-              />
-            </TouchableOpacity>
-            <Text style={styles.audioFileName} numberOfLines={1} ellipsizeMode="middle">
-              {media.split('/').pop()}
-            </Text>
+            <AudioPlayer url={media} title={filename} />
           </View>
           <TouchableOpacity
             style={styles.changeMediaButton}
@@ -162,7 +131,11 @@ export function MediaUploader({
         <View style={styles.linkContainer}>
           {media ? (
             <View style={styles.linkPreview}>
-              <Text style={styles.linkText} numberOfLines={1} ellipsizeMode="middle">
+              <Text
+                style={styles.linkText}
+                numberOfLines={1}
+                ellipsizeMode="middle"
+              >
                 {media}
               </Text>
               <TouchableOpacity
@@ -183,7 +156,7 @@ export function MediaUploader({
                 autoCapitalize="none"
                 keyboardType="url"
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.linkSubmitButton}
                 onPress={handleLinkSubmit}
                 disabled={!linkInput.trim()}
@@ -199,10 +172,10 @@ export function MediaUploader({
       {!media && mediaType !== "link" && (
         <View style={styles.uploadContainer}>
           <TouchableOpacity style={styles.uploadButton} onPress={pickMedia}>
-            <FontAwesome 
-              name={mediaType === "audio" ? "music" : "cloud-upload"} 
-              size={30} 
-              color="#a084ca" 
+            <FontAwesome
+              name={mediaType === "audio" ? "music" : "cloud-upload"}
+              size={30}
+              color="#a084ca"
             />
             <Text style={styles.uploadText}>
               Upload {mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}
@@ -233,12 +206,9 @@ const styles = StyleSheet.create({
     color: "#a084ca",
     fontWeight: "bold" as const,
   },
-  
+
   // Change Media Button
   changeMediaButton: {
-    position: "absolute" as const,
-    bottom: 10,
-    right: 10,
     backgroundColor: "#a084ca",
     flexDirection: "row" as const,
     alignItems: "center" as const,
@@ -252,45 +222,36 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "bold" as const,
   },
-  
+
+  // Image Media
+  imageContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "column",
+    gap: 10,
+  },
+
+  // Video Media
+  videoContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "column",
+    gap: 10,
+  },
+
   // Audio Player
   audioContainer: {
     width: "100%",
-    height: 200,
     backgroundColor: "#f0f0f0",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    position: "relative",
+    flexDirection: "column",
   },
   audioPlayer: {
-    flexDirection: "row" as const,
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 30,
-    padding: 15,
     width: "80%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  audioPlayButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#f0e6ff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  audioFileName: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-  },
-  
+
   // Link Input
   linkContainer: {
     width: "100%",
