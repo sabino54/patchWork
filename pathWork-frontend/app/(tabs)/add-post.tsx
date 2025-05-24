@@ -16,16 +16,16 @@ import { useEffect, useState } from "react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
-import { createPost, uploadImage } from "@/lib/posts";
+import { createPost, PostMediaType, uploadImage } from "@/lib/posts";
 import { useRouter } from "expo-router";
 
 export default function AddPost() {
   const router = useRouter();
 
-  const [selectedPostType, setSelectedPostType] = useState<"image" | "audio" | "video" | "link">(
+  const [selectedPostType, setSelectedPostType] = useState<PostMediaType>(
     "image",
   );
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [media, setMedia] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
@@ -40,6 +40,11 @@ export default function AddPost() {
     });
   }, []);
 
+  // Clear media when mediaType changes
+  useEffect(() => {
+    setMedia(null);
+  }, [selectedPostType]);
+
   // Upload image mutation
   const uploadImageMutation = useMutation({
     mutationFn: uploadImage,
@@ -49,6 +54,7 @@ export default function AddPost() {
     },
   });
 
+
   // Create post mutation
   const createPostMutation = useMutation({
     mutationFn: createPost,
@@ -57,7 +63,7 @@ export default function AddPost() {
       // Reset form
       setTitle("");
       setDescription("");
-      setImageUri(null);
+      setMedia(null);
       setTags([]);
 
       // navigate to the home screen
@@ -93,7 +99,7 @@ export default function AddPost() {
       return;
     }
 
-    if (selectedPostType !== "link" && !imageUri) {
+    if (selectedPostType !== "link" && !media) {
       Alert.alert("Error", `Please upload a ${selectedPostType} for your post`);
       return;
     }
@@ -102,10 +108,10 @@ export default function AddPost() {
 
     try {
       // For media that needs to be uploaded (image, video)
-      if ((selectedPostType === "image" || selectedPostType === "video") && imageUri) {
+      if ((selectedPostType === "image" || selectedPostType === "video") && media) {
         // Upload the media and wait for it to complete
         const uploadedMediaUrl = await uploadImageMutation.mutateAsync({
-          imageUri,
+          imageUri: media,
           userId: user.id,
         });
 
@@ -119,25 +125,25 @@ export default function AddPost() {
         });
       } 
       // For audio posts
-      else if (selectedPostType === "audio" && imageUri) {
+      else if (selectedPostType === "audio" && media) {
         // For now, we're just storing the URI directly
         // In a production app, you would upload the audio file to storage
         await createPostMutation.mutateAsync({
           title,
           description,
           userId: user.id,
-          mediaUrl: imageUri,
+          mediaUrl: media,
           mediaType: selectedPostType,
         });
       }
       // For link posts
-      else if (selectedPostType === "link" && imageUri) {
+      else if (selectedPostType === "link" && media) {
         // For link posts, the imageUri contains the URL
         await createPostMutation.mutateAsync({
           title,
           description,
           userId: user.id,
-          mediaUrl: imageUri,
+          mediaUrl: media,
           mediaType: selectedPostType,
         });
       }
@@ -233,9 +239,9 @@ export default function AddPost() {
 
         <MediaUploader
           mediaType={selectedPostType}
-          mediaUri={imageUri}
+          mediaUri={media}
           onMediaSelection={(uri: string) => {
-            setImageUri(uri);
+            setMedia(uri);
           }}
         />
 

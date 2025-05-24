@@ -94,11 +94,6 @@ export function MediaUploader({
       {/* Video Media */}
       {media && mediaType === "video" && (
         <View style={styles.videoContainer}>
-          {/* <Video */}
-          {/*   source={{ uri: media }} */}
-          {/*   style={{ width: "100%", minHeight: 400 }} */}
-          {/*   useNativeControls */}
-          {/* /> */}
           <VideoPlayer url={media} />
           <TouchableOpacity
             style={styles.changeMediaButton}
