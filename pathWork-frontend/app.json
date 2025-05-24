@@ -40,6 +40,7 @@
           "photosPermission": "The app needs access to your photos to upload images."
         }
       ],
+      "expo-document-picker",
       "expo-font",
       "expo-video"
     ],

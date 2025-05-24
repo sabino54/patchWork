@@ -13,7 +13,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { FontAwesome } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { UploadImage } from "@/components/uploadImage";
+import { MediaUploader } from "@/components/MediaUploader";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { createPost, uploadImage } from "@/lib/posts";
@@ -93,27 +93,56 @@ export default function AddPost() {
       return;
     }
 
+    if (selectedPostType !== "link" && !imageUri) {
+      Alert.alert("Error", `Please upload a ${selectedPostType} for your post`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // For image posts, upload the image first
-      if (selectedPostType === "image" && imageUri) {
-        // Upload the image and wait for it to complete
-        const uploadedImageUrl = await uploadImageMutation.mutateAsync({
+      // For media that needs to be uploaded (image, video)
+      if ((selectedPostType === "image" || selectedPostType === "video") && imageUri) {
+        // Upload the media and wait for it to complete
+        const uploadedMediaUrl = await uploadImageMutation.mutateAsync({
           imageUri,
           userId: user.id,
         });
 
-        // After successful image upload, create the post with the image URL
+        // After successful media upload, create the post with the media URL
         await createPostMutation.mutateAsync({
           title,
           description,
           userId: user.id,
-          mediaUrl: uploadedImageUrl,
+          mediaUrl: uploadedMediaUrl,
           mediaType: selectedPostType,
         });
-      } else {
-        // For audio posts or posts without media
+      } 
+      // For audio posts
+      else if (selectedPostType === "audio" && imageUri) {
+        // For now, we're just storing the URI directly
+        // In a production app, you would upload the audio file to storage
+        await createPostMutation.mutateAsync({
+          title,
+          description,
+          userId: user.id,
+          mediaUrl: imageUri,
+          mediaType: selectedPostType,
+        });
+      }
+      // For link posts
+      else if (selectedPostType === "link" && imageUri) {
+        // For link posts, the imageUri contains the URL
+        await createPostMutation.mutateAsync({
+          title,
+          description,
+          userId: user.id,
+          mediaUrl: imageUri,
+          mediaType: selectedPostType,
+        });
+      }
+      else {
+        // For posts without media
         await createPostMutation.mutateAsync({
           title,
           description,
@@ -202,24 +231,13 @@ export default function AddPost() {
           </TouchableOpacity>
         </View>
 
-        {(selectedPostType === "image" || selectedPostType === "video") && (
-          <UploadImage
-            mediaType={selectedPostType}
-            mediaUri={imageUri}
-            onMediaSelection={(uri) => {
-              setImageUri(uri);
-            }}
-          />
-        )}
-
-        {selectedPostType === "audio" && (
-          <View style={styles.uploadContainer}>
-            <TouchableOpacity style={styles.uploadButton}>
-              <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
-              <Text style={styles.uploadText}>Upload Audio</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <MediaUploader
+          mediaType={selectedPostType}
+          mediaUri={imageUri}
+          onMediaSelection={(uri: string) => {
+            setImageUri(uri);
+          }}
+        />
 
         <View style={styles.tagsContainer}>
           {tags.map((tag, index) => (
