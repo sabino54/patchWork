@@ -40,7 +40,7 @@ export default function ChatList() {
         contentContainerStyle={styles.conversationsContainer}
         showsVerticalScrollIndicator={false}
       >
-        {conversations.map((conversation) => (
+        {conversations.reverse().map((conversation) => (
           <TouchableOpacity 
             style={styles.conversationItem} 
             key={conversation.id}
@@ -63,7 +63,10 @@ export default function ChatList() {
                   }
                 </Text>
                 <Text style={styles.lastMessage} numberOfLines={1}>
-                  {new Date(conversation.last_message_at).toLocaleString('en-US')}
+                  {conversation.last_message_at ? new Date(conversation.last_message_at).toLocaleString('en-US') : new Date(conversation.created_at).toLocaleString('en-US')}
+                </Text>
+                <Text style={styles.lastMessage} numberOfLines={1}>
+                  {conversation.last_message ? conversation.last_message : 'No messages yet'}
                 </Text>
               </View>
             </View>

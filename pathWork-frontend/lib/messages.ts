@@ -12,7 +12,8 @@ export interface Message {
 export interface Conversation {
   id: string;
   created_at: string;
-  last_message_at: string;
+  last_message: string | null;
+  last_message_at: string | null;
   user_a_id: string;
   user_b_id: string;
 }
@@ -121,11 +122,6 @@ export async function sendMessage({
   senderId: string;
   content: string;
 }): Promise<Message> {
-  console.log('Sending message:', {
-    conversationId,
-    senderId,
-    content,
-  });
   const { data, error } = await supabase
     .from('messages')
     .insert({
@@ -141,19 +137,14 @@ export async function sendMessage({
   }
 
   // Update the last message timestamp in the conversation
-  console.log('Updating last message timestamp:', {
-    conversationId,
-    lastMessageAt: data.created_at,
-  });
   const { data: lastmsgdata, error: lastmsgerror } = await supabase
     .from('conversations')
-    .update({ last_message_at: data.created_at })
+    .update({ last_message_at: data.created_at, last_message: content })
     .eq('id', conversationId)
     .select();
   if (lastmsgerror) {
     console.error('Error updating last message timestamp:', lastmsgerror);
   }
-  console.log('Last message timestamp updated:', lastmsgdata);
 
   return data;
 }
