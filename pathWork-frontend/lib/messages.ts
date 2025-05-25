@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { PublicProfile } from './users';
 
 export interface Message {
   id: string;
@@ -14,6 +15,15 @@ export interface Conversation {
   last_message_at: string;
   user_a_id: string;
   user_b_id: string;
+}
+
+export interface ConversationWithUsers extends Conversation {
+  user_a: PublicProfile;
+  user_b: PublicProfile;
+}
+
+export interface MessageWithSender extends Message {
+  sender: PublicProfile;
 }
 
 export async function createConversation({
@@ -45,6 +55,105 @@ export async function createConversation({
   if (error) {
     throw error;
   }
+
+  return data;
+}
+
+export async function fetchConversation(
+  conversationId: string,
+): Promise<ConversationWithUsers | null> {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(
+      `*, user_a:conversation_user_a_id_fkey(*), user_b:conversation_user_b_id_fkey(*)`,
+    )
+    .eq('id', conversationId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching conversation:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function fetchAllConversations(
+  userId: string,
+): Promise<ConversationWithUsers[]> {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(
+      `*, user_a:conversation_user_a_id_fkey(*), user_b:conversation_user_b_id_fkey(*)`,
+    )
+    .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`)
+    .order('last_message_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}
+
+export async function fetchMessages(
+  conversationId: string,
+): Promise<MessageWithSender[]> {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*, sender:messages_sender_id_fkey(*)')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}
+
+export async function sendMessage({
+  conversationId,
+  senderId,
+  content,
+}: {
+  conversationId: string;
+  senderId: string;
+  content: string;
+}): Promise<Message> {
+  console.log('Sending message:', {
+    conversationId,
+    senderId,
+    content,
+  });
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      content,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  // Update the last message timestamp in the conversation
+  console.log('Updating last message timestamp:', {
+    conversationId,
+    lastMessageAt: data.created_at,
+  });
+  const { data: lastmsgdata, error: lastmsgerror } = await supabase
+    .from('conversations')
+    .update({ last_message_at: data.created_at })
+    .eq('id', conversationId)
+    .select();
+  if (lastmsgerror) {
+    console.error('Error updating last message timestamp:', lastmsgerror);
+  }
+  console.log('Last message timestamp updated:', lastmsgdata);
 
   return data;
 }

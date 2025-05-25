@@ -53,7 +53,7 @@ export default function UserProfile() {
       Alert.alert("Error. Failed to create conversation.");
     },
     onSuccess: (data) => {
-      // router.push(`/chat/${data.id}`);
+      router.push(`/chat/${data.id}`);
     },
   });
 
