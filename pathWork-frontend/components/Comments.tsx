@@ -1,6 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { getComments, addComment, deleteComment } from '../lib/comments';
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  Image,
+} from "react-native";
+import { getComments, addComment, deleteComment } from "../lib/comments";
+import { Ionicons } from "@expo/vector-icons";
 
 interface CommentProps {
   postId: string;
@@ -10,7 +20,7 @@ interface CommentProps {
 export default function Comments({ postId, userId }: CommentProps) {
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [commentText, setCommentText] = useState('');
+  const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +31,7 @@ export default function Comments({ postId, userId }: CommentProps) {
       setComments(data || []);
       setError(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to load comments');
+      setError(err.message || "Failed to load comments");
     } finally {
       setLoading(false);
     }
@@ -36,10 +46,10 @@ export default function Comments({ postId, userId }: CommentProps) {
     setSubmitting(true);
     try {
       await addComment(postId, userId, commentText.trim());
-      setCommentText('');
+      setCommentText("");
       fetchComments();
     } catch (err: any) {
-      setError(err.message || 'Failed to add comment');
+      setError(err.message || "Failed to add comment");
     } finally {
       setSubmitting(false);
     }
@@ -47,127 +57,205 @@ export default function Comments({ postId, userId }: CommentProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Comments</Text>
       {loading ? (
-        <ActivityIndicator color="#8d5fd3" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8d5fd3" />
+        </View>
       ) : (
-        comments.length === 0 ? (
-          <Text style={styles.noComments}>No comments yet.</Text>
-        ) : (
-          comments.map(item => (
-            <View key={item.id} style={styles.commentItem}>
-              <Text style={styles.username}>{item.public_profiles?.username || 'User'}</Text>
-              <Text style={styles.commentText}>{item.comment_text}</Text>
-              {item.user_id === userId && (
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={async () => {
-                    await deleteComment(item.id);
-                    fetchComments();
-                  }}
-                >
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                </TouchableOpacity>
-              )}
+        <ScrollView style={styles.commentsList}>
+          {comments.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubble-outline" size={48} color="#e0d6f7" />
+              <Text style={styles.noComments}>Be the first to comment</Text>
             </View>
-          ))
-        )
+          ) : (
+            comments.map((item) => (
+              <View key={item.id} style={styles.commentItem}>
+                <View style={styles.commentHeader}>
+                  <View style={styles.userInfo}>
+                    <Image
+                      source={{
+                        uri:
+                          item.public_profiles?.profile_photo ||
+                          "https://via.placeholder.com/40",
+                      }}
+                      style={styles.avatar}
+                    />
+                    <View>
+                      <Text style={styles.username}>
+                        {item.public_profiles?.username || "User"}
+                      </Text>
+                      <Text style={styles.timestamp}>
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  </View>
+                  {item.user_id === userId && (
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={async () => {
+                        await deleteComment(item.id);
+                        fetchComments();
+                      }}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color="#ff4444"
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={styles.commentText}>{item.comment_text}</Text>
+              </View>
+            ))
+          )}
+        </ScrollView>
       )}
-      <View style={styles.inputRow}>
+
+      <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
           value={commentText}
           onChangeText={setCommentText}
-          placeholder="Add a comment..."
+          placeholder="Write a comment..."
+          placeholderTextColor="#999"
+          multiline
         />
         <TouchableOpacity
-          style={styles.button}
+          style={[
+            styles.button,
+            (!commentText.trim() || submitting) && styles.buttonDisabled,
+          ]}
           onPress={handleAddComment}
           disabled={submitting || !commentText.trim()}
         >
-          <Text style={styles.buttonText}>{submitting ? '...' : 'Post'}</Text>
+          {submitting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="send" size={24} color="#fff" />
+          )}
         </TouchableOpacity>
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={20} color="#ff4444" />
+          <Text style={styles.error}>{error}</Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 10,
-    backgroundColor: '#f7f0fa',
-    borderRadius: 10,
-    padding: 10,
+    flex: 1,
+    backgroundColor: "#fff",
   },
-  header: {
-    fontWeight: 'bold',
-    color: '#8d5fd3',
-    marginBottom: 6,
-    fontSize: 16,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  commentItem: {
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 8,
+  commentsList: {
+    flex: 1,
+    padding: 16,
   },
-  username: {
-    fontWeight: 'bold',
-    color: '#a084ca',
-    marginBottom: 2,
-  },
-  commentText: {
-    color: '#333',
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 32,
   },
   noComments: {
-    color: '#aaa',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginVertical: 8,
+    color: "#999",
+    fontSize: 16,
+    marginTop: 12,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
+  commentItem: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  commentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  username: {
+    fontWeight: "600",
+    color: "#333",
+    fontSize: 15,
+  },
+  timestamp: {
+    color: "#999",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  commentText: {
+    color: "#444",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+    backgroundColor: "#fff",
   },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#e0d6f7',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#fff',
+    backgroundColor: "#f8f9fa",
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingRight: 48,
     fontSize: 15,
+    maxHeight: 100,
+    color: "#333",
   },
   button: {
-    marginLeft: 8,
-    backgroundColor: '#8d5fd3',
+    position: "absolute",
+    right: 24,
+    backgroundColor: "#8d5fd3",
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  buttonDisabled: {
+    backgroundColor: "#e0d6f7",
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff5f5",
+    padding: 12,
+    margin: 16,
+    borderRadius: 8,
   },
   error: {
-    color: '#ff4444',
-    marginTop: 6,
-    textAlign: 'center',
+    color: "#ff4444",
+    marginLeft: 8,
+    fontSize: 14,
   },
-  deleteButton: {
-    marginTop: 4,
-    alignSelf: 'flex-end',
-    backgroundColor: '#ff4444',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-}); 
+});

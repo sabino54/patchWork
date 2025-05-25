@@ -133,7 +133,7 @@ export default function UserProfile() {
           <UserPosts username={userData?.username || ""} />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView> 
   );
 }
 

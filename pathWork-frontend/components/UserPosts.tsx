@@ -121,9 +121,6 @@ export default function UserPosts({ username }: UserPostsProps) {
             >
               <Text style={styles.username}>{post.user.username}</Text>
             </TouchableOpacity>
-            <View style={styles.versionBadge}>
-              <Text style={styles.versionText}>v{post.version}</Text>
-            </View>
             <Text style={styles.time}>{formatTime(post.created_at)}</Text>
           </View>
           <View style={styles.mediaContainer}>
