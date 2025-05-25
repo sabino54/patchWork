@@ -7,6 +7,7 @@ import {
   ScrollView,
   RefreshControl,
   SafeAreaView,
+  Alert,
 } from "react-native";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -15,6 +16,8 @@ import { useState, useEffect } from "react";
 import React from "react";
 import ArtworkFolders from "../../components/ArtworkFolders";
 import { Session } from "@supabase/supabase-js";
+import { useMutation } from "@tanstack/react-query";
+import { createConversation } from "@/lib/messages";
 
 export default function UserProfile() {
   const router = useRouter();
@@ -42,6 +45,17 @@ export default function UserProfile() {
   useEffect(() => {
     fetchUserProfile();
   }, [username]);
+
+  const createConversationMutation = useMutation({
+    mutationFn: createConversation,
+    onError: (error) => {
+      console.error("Error creating conversation:", error);
+      Alert.alert("Error. Failed to create conversation.");
+    },
+    onSuccess: (data) => {
+      // router.push(`/chat/${data.id}`);
+    },
+  });
 
   async function fetchUserProfile() {
     try {
@@ -74,8 +88,10 @@ export default function UserProfile() {
   }, []);
 
   const handleMessagePress = () => {
-    console.log("User ID:", userData?.id);
-    console.log("sender ID:", session?.user.id);
+    createConversationMutation.mutate({
+      userAId: session?.user.id || "",
+      userBId: userData?.id || "",
+    });
   };
 
   if (loading) {

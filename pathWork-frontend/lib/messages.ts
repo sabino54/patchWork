@@ -23,14 +23,26 @@ export async function createConversation({
   userAId: string;
   userBId: string;
 }): Promise<Conversation> {
+  // first check if a conversation already exists between the two users
+  const { data: existingConversation, error: fetchError } = await supabase
+    .from('conversations')
+    .select('*')
+    .or(
+      `and(user_a_id.eq.${userAId},user_b_id.eq.${userBId}),and(user_a_id.eq.${userBId},user_b_id.eq.${userAId})`, // check both directions
+    )
+    .single();
+  if (existingConversation) {
+    return existingConversation;
+  }
+
+  // if no existing conversation, create a new one
   const { data, error } = await supabase
     .from('conversations')
-    .insert([{ user_a_id: userAId, user_b_id: userBId }])
+    .insert({ user_a_id: userAId, user_b_id: userBId })
     .select()
     .single();
 
   if (error) {
-    console.error('Error creating conversation:', error);
     throw error;
   }
 
