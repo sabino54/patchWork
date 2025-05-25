@@ -38,3 +38,15 @@ export async function getCommentCount(post_id: string): Promise<number> {
   if (error) throw error;
   return count || 0;
 } 
+
+/**
+ * Delete a comment by its id.
+ */
+export async function deleteComment(comment_id: string) {
+    const { data, error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', comment_id);
+    if (error) throw error;
+    return data;
+  } 

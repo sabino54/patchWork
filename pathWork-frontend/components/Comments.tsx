@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import { getComments, addComment } from '../lib/comments';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { getComments, addComment, deleteComment } from '../lib/comments';
 
 interface CommentProps {
   postId: string;
@@ -51,17 +51,27 @@ export default function Comments({ postId, userId }: CommentProps) {
       {loading ? (
         <ActivityIndicator color="#8d5fd3" />
       ) : (
-        <FlatList
-          data={comments}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.commentItem}>
+        comments.length === 0 ? (
+          <Text style={styles.noComments}>No comments yet.</Text>
+        ) : (
+          comments.map(item => (
+            <View key={item.id} style={styles.commentItem}>
               <Text style={styles.username}>{item.public_profiles?.username || 'User'}</Text>
               <Text style={styles.commentText}>{item.comment_text}</Text>
+              {item.user_id === userId && (
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={async () => {
+                    await deleteComment(item.id);
+                    fetchComments();
+                  }}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          )}
-          ListEmptyComponent={<Text style={styles.noComments}>No comments yet.</Text>}
-        />
+          ))
+        )
       )}
       <View style={styles.inputRow}>
         <TextInput
@@ -146,5 +156,18 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     marginTop: 6,
     textAlign: 'center',
+  },
+  deleteButton: {
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    backgroundColor: '#ff4444',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
 }); 

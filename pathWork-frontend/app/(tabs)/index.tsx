@@ -315,11 +315,9 @@ export default function Index() {
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.comments}>0 comments</Text>
+                  <CommentCount postId={post.id} />
                 </View>
               </View>
-              {/* For testing purposes */}
-              <CommentCount postId={post.id} />
               {currentUserId && (
                 <Comments postId={post.id} userId={currentUserId} />
               )}
