@@ -1,7 +1,7 @@
 import { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { supabase } from '@/lib/supabase';
-import { SafeAreaView, View, StyleSheet, Text, TouchableOpacity, ScrollView, Image } from "react-native";
+import { SafeAreaView, View, StyleSheet, Text, TouchableOpacity, ScrollView, Image, RefreshControl } from "react-native";
 import { ConversationWithUsers, fetchAllConversations } from "@/lib/messages";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 export default function ChatList() {
   const [user, setUser] = useState<User | null>()
   const [conversations, setConversations] = useState<ConversationWithUsers[]>([])
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const router = useRouter();
 
   // Fetch the user from Supabase
@@ -26,6 +27,19 @@ export default function ChatList() {
     })
   }, [user])
 
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (!user) return;
+      const data = await fetchAllConversations(user.id);
+      setConversations(data);
+    } catch (error) {
+      console.error("Error refreshing conversations:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
   const onConversationPress = (conversationId: string) => {
     router.push(`/chat/${conversationId}`);
   }
@@ -39,6 +53,13 @@ export default function ChatList() {
       <ScrollView 
         contentContainerStyle={styles.conversationsContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing} 
+            onRefresh={onRefresh} 
+            colors={['#8d5fd3']}
+          />
+        }
       >
         {conversations.reverse().map((conversation) => (
           <TouchableOpacity 
