@@ -33,7 +33,7 @@ function transformPost(data: any): Post {
     description: data.description,
     user_id: data.user_id,
     title: data.title,
-    tags: data.tags,
+    tags: data.tag,
     project: data.project,
     version: data.version,
     user: {
@@ -106,12 +106,14 @@ export async function createPost({
   userId,
   publicMediaUrl,
   mediaType,
+  tag,
 }: {
   title: string;
   description: string;
   userId: string;
   publicMediaUrl: string | null;
   mediaType: PostMediaType;
+  tag: string[];
 }): Promise<Post[]> {
   const { data, error } = await supabase
     .from('posts')
@@ -121,6 +123,7 @@ export async function createPost({
       user_id: userId,
       media_url: publicMediaUrl,
       media_type: mediaType,
+      tag,
     })
     .select();
 
