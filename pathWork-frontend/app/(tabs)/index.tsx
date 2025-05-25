@@ -21,6 +21,9 @@ import LinkDisplay from "../../components/LinkDisplay";
 import AudioPlayer from "../../components/AudioPlayer";
 import formatTime from "../../components/timeFormat";
 import { Ionicons } from "@expo/vector-icons";
+import Comments from "../../components/Comments";
+import { supabase } from "../../lib/supabase";
+import { getCommentCount } from "../../lib/comments";
 
 const categories = [
   "All",
@@ -52,6 +55,7 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState("");
   const animatedWidth = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(1)).current;
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const toggleSearch = () => {
@@ -99,6 +103,11 @@ export default function Index() {
     setFilteredPosts(filtered);
   }, [searchQuery, posts]);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id || null);
+    });
+  }, []);
   // Filter posts based on selected category
   useEffect(() => {
     if (selectedCategory === "All") {
@@ -135,7 +144,7 @@ export default function Index() {
 
   const handleUserPress = (username: string) => {
     console.log("username", username);
-    router.push(`/user/${username.replace("@", "")}`);
+    router.push(`/user/${username.replace("@", "")}` as any);
   };
 
   const handleImagePress = (imageUrl: string) => {
@@ -324,9 +333,12 @@ export default function Index() {
                       <Text style={styles.tagText}>{post.tags}</Text>
                     </View>
                   </View>
-                  <Text style={styles.comments}>0 comments</Text>
+                  <CommentCount postId={post.id} />
                 </View>
               </View>
+              {currentUserId && (
+                <Comments postId={post.id} userId={currentUserId} />
+              )}
             </View>
           ))
         )}
@@ -633,3 +645,20 @@ const styles = StyleSheet.create({
     height: Dimensions.get("window").height,
   },
 });
+
+// For testing purposes
+function CommentCount({ postId }: { postId: string }) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    let isMounted = true;
+    getCommentCount(postId).then((c) => {
+      if (isMounted) setCount(c);
+    });
+    return () => { isMounted = false; };
+  }, [postId]);
+  return (
+    <Text style={styles.comments}>
+      {count === null ? "..." : `${count} comment${count === 1 ? '' : 's'}`}
+    </Text>
+  );
+}
