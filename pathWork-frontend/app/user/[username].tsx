@@ -7,35 +7,62 @@ import {
   ScrollView,
   RefreshControl,
   SafeAreaView,
+  Alert,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useState, useEffect } from "react";
 import React from "react";
 import ArtworkFolders from "../../components/ArtworkFolders";
+import { Session } from "@supabase/supabase-js";
+import { useMutation } from "@tanstack/react-query";
+import { createConversation } from "@/lib/messages";
 
 export default function UserProfile() {
   const router = useRouter();
   const { username } = useLocalSearchParams();
   const [userData, setUserData] = useState<{
+    id: string;
     username: string;
     bio: string;
     profile_photo: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setSession(session);
+    };
+    fetchSession();
+  }, []);
 
   useEffect(() => {
     fetchUserProfile();
   }, [username]);
+
+  const createConversationMutation = useMutation({
+    mutationFn: createConversation,
+    onError: (error) => {
+      console.error("Error creating conversation:", error);
+      Alert.alert("Error. Failed to create conversation.");
+    },
+    onSuccess: (data) => {
+      router.push(`/chat/${data.id}`);
+    },
+  });
 
   async function fetchUserProfile() {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from("public_profiles")
-        .select("username, bio, profile_photo")
+        .select("id, username, bio, profile_photo")
         .eq("username", username)
         .single();
 
@@ -59,6 +86,13 @@ export default function UserProfile() {
     await fetchUserProfile();
     setRefreshing(false);
   }, []);
+
+  const handleMessagePress = () => {
+    createConversationMutation.mutate({
+      userAId: session?.user.id || "",
+      userBId: userData?.id || "",
+    });
+  };
 
   if (loading) {
     return null;
@@ -94,6 +128,13 @@ export default function UserProfile() {
           <Text style={styles.username}>
             @{userData?.username || "username"}
           </Text>
+          <TouchableOpacity
+            style={styles.messageButton}
+            onPress={handleMessagePress}
+          >
+            <FontAwesome name="paper-plane" size={16} color="white" />
+            <Text style={styles.messageButtonText}>Message</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsContainer}>
@@ -144,6 +185,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     marginTop: 5,
+  },
+  messageButton: {
+    marginTop: 10,
+    backgroundColor: "#a084ca",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    flexDirection: "row",
+    gap: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 40,
+  },
+  messageButtonText: {
+    color: "white",
+    fontSize: 16,
   },
   statsContainer: {
     flexDirection: "row",
