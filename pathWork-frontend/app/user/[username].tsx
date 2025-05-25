@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useState, useEffect } from "react";
 import React from "react";
+import UserPosts from "../../components/UserPosts";
 import ArtworkFolders from "../../components/ArtworkFolders";
 import { Session } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
@@ -155,7 +156,10 @@ export default function UserProfile() {
           </Text>
         </View>
 
-        <ArtworkFolders folders={[]} onFolderPress={() => {}} />
+        <View style={styles.postsSection}>
+          <Text style={styles.postsSectionTitle}>Posts</Text>
+          <UserPosts username={username as string} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -164,7 +168,7 @@ export default function UserProfile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f7f0fa",
   },
   header: {
     alignItems: "center",
@@ -236,5 +240,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     lineHeight: 24,
+  },
+  postsSection: {
+    marginTop: 20,
+  },
+  postsSectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 10,
+    paddingHorizontal: 20,
   },
 });

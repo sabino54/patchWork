@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useState, useEffect } from "react";
 import React from "react";
-import ArtworkFolders from "../../components/ArtworkFolders";
+import UserPosts from "../../components/UserPosts";
 
 export default function UserProfile() {
   const router = useRouter();
@@ -74,38 +74,6 @@ export default function UserProfile() {
     setRefreshing(false);
   }, []);
 
-  const handleFolderPress = (folderId: string) => {
-    router.push({
-      pathname: "/folder/[id]",
-      params: { id: folderId },
-    });
-  };
-
-  // Mock data for folders - replace with actual data from your backend
-  const mockFolders = [
-    {
-      id: "1",
-      title: "Digital Paintings",
-      thumbnail: "https://picsum.photos/200",
-      versionCount: 5,
-      lastUpdated: "2 days ago",
-    },
-    {
-      id: "2",
-      title: "Character Designs",
-      thumbnail: "https://picsum.photos/201",
-      versionCount: 3,
-      lastUpdated: "1 week ago",
-    },
-    {
-      id: "3",
-      title: "Landscape Studies",
-      thumbnail: "https://picsum.photos/202",
-      versionCount: 8,
-      lastUpdated: "3 days ago",
-    },
-  ];
-
   if (loading) {
     return null;
   }
@@ -160,10 +128,10 @@ export default function UserProfile() {
           </Text>
         </View>
 
-        <ArtworkFolders
-          folders={mockFolders}
-          onFolderPress={handleFolderPress}
-        />
+        <View style={styles.postsSection}>
+          <Text style={styles.postsSectionTitle}>Posts</Text>
+          <UserPosts username={userData?.username || ""} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -172,7 +140,7 @@ export default function UserProfile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f7f0fa",
   },
   header: {
     alignItems: "center",
@@ -240,5 +208,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     lineHeight: 24,
+  },
+  postsSection: {
+    marginTop: 20,
+  },
+  postsSectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 10,
+    paddingHorizontal: 20,
   },
 });
