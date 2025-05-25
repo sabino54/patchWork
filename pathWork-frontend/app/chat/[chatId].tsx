@@ -1,5 +1,5 @@
-import { User } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState } from "react";
+import { RealtimeChannel, User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import {
   GiftedChat,
   IMessage,
@@ -25,6 +25,7 @@ import {
   fetchConversation,
   fetchMessages,
   sendMessage,
+  Message,
 } from "@/lib/messages";
 import { useMutation } from "@tanstack/react-query";
 import { fetchUserProfileById, PublicProfile } from "@/lib/users";
@@ -39,6 +40,7 @@ export default function Chat() {
   const [conversation, setConversation] =
     useState<ConversationWithUsers | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   // Fetch the user from Supabase
   useEffect(() => {
@@ -88,6 +90,32 @@ export default function Chat() {
     loadMessages();
   }, [chatId]);
 
+  // Initialize the realtime channel for the conversation
+  useEffect(() => {
+    if (!chatId) return;
+    if (!channel) {
+      // Subscribe to the realtime channel for new messages
+      const channel = supabase
+        .channel(`${chatId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages" },
+          (payload) => {
+            const newMessage = payload.new as Message;
+            appendMessage(newMessage);
+          },
+        )
+        .subscribe();
+      setChannel(channel);
+    }
+
+    return () => {
+      // Unsubscribe from the channel when the component unmounts
+      setChannel(null);
+      channel?.unsubscribe();
+    };
+  }, [conversation]);
+
   const onRefresh = async () => {
     setIsRefreshing(true);
     await loadMessages();
@@ -105,15 +133,36 @@ export default function Chat() {
     },
   });
 
+  const appendMessage = (newMessage: Message) => {
+    setMessages((prevMessages) =>
+      GiftedChat.append(prevMessages, [
+        {
+          _id: newMessage.id,
+          text: newMessage.content,
+          createdAt: new Date(newMessage.created_at),
+          user: {
+            _id: newMessage.sender_id,
+            name:
+              conversation?.user_a_id === newMessage.sender_id
+                ? conversation?.user_a.username
+                : conversation?.user_b.username,
+            avatar:
+              (conversation?.user_a_id === newMessage.sender_id
+                ? conversation?.user_a.profile_photo
+                : conversation?.user_b.profile_photo) ||
+              "https://placeimg.com/140/140/any",
+          },
+        },
+      ]),
+    );
+  };
+
   const onSend = (messages: any[] = []) => {
     sendMessageMutation.mutate({
       conversationId: chatId || "",
       senderId: user?.id || "",
       content: messages[0].text,
     });
-    setMessages((previousMessages) =>
-      GiftedChat.append(previousMessages, messages),
-    );
   };
 
   const renderBubble = (props: any) => {
