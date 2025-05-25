@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 

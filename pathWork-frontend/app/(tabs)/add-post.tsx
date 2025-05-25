@@ -19,6 +19,23 @@ import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { createPost, PostMediaType, uploadMedia } from "@/lib/posts";
 import { useRouter } from "expo-router";
+import CategorySelectionModal from "@/components/CategorySelectionModal";
+
+const categories = [
+  "Visual Arts",
+  "Digital Art",
+  "Photography",
+  "Music & Audio",
+  "Performance",
+  "Writing & Poetry",
+  "Design",
+  "Craft & DIY",
+  "Film & Video",
+  "Animation",
+  "Fashion",
+  "Architecture",
+  "Mixed Media",
+] as const;
 
 export default function AddPost() {
   const router = useRouter();
@@ -26,9 +43,10 @@ export default function AddPost() {
   const [selectedMediaType, setSelectedMediaType] =
     useState<PostMediaType>("image");
   const [media, setMedia] = useState<string | null>(null);
-  const [tags, setTags] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
 
   const [user, setUser] = useState<User | null>(null);
 
@@ -63,7 +81,7 @@ export default function AddPost() {
       setTitle("");
       setDescription("");
       setMedia(null);
-      setTags([]);
+      setSelectedCategory(null);
 
       // navigate to the home screen
       router.navigate("/");
@@ -74,14 +92,13 @@ export default function AddPost() {
     },
   });
 
-  const handleAddTagButtonPress = () => {
-    setTags([...tags, "New Tag"]);
+  const handleSelectCategory = (category: string) => {
+    setSelectedCategory(category);
+    setIsCategoryModalVisible(false);
   };
 
-  const handleTagDelete = (index: number) => {
-    const newTags = [...tags];
-    newTags.splice(index, 1);
-    setTags(newTags);
+  const handleRemoveCategory = () => {
+    setSelectedCategory(null);
   };
 
   // Loading state
@@ -101,8 +118,13 @@ export default function AddPost() {
     if (selectedMediaType !== "link" && !media) {
       Alert.alert(
         "Error",
-        `Please upload a ${selectedMediaType} for your post`,
+        `Please upload a ${selectedMediaType} for your post`
       );
+      return;
+    }
+
+    if (!selectedCategory) {
+      Alert.alert("Error", "Please select a category for your post");
       return;
     }
 
@@ -129,6 +151,7 @@ export default function AddPost() {
           userId: user.id,
           publicMediaUrl: uploadedMediaUrl,
           mediaType: selectedMediaType,
+          tag: [selectedCategory],
         });
       }
 
@@ -141,6 +164,7 @@ export default function AddPost() {
           userId: user.id,
           publicMediaUrl: media,
           mediaType: selectedMediaType,
+          tag: [selectedCategory],
         });
       }
     } catch (error) {
@@ -239,22 +263,29 @@ export default function AddPost() {
           />
 
           <View style={styles.tagsContainer}>
-            {tags.map((tag, index) => (
-              <View key={index} style={styles.tagButton}>
-                <Text style={styles.tagText}>{tag}</Text>
-                <TouchableOpacity onPress={() => handleTagDelete(index)}>
-                  <FontAwesome name="times" size={16} color={"white"} />
+            {selectedCategory ? (
+              <View style={styles.tagButton}>
+                <Text style={styles.tagText}>{selectedCategory}</Text>
+                <TouchableOpacity onPress={handleRemoveCategory}>
+                  <FontAwesome name="times" size={18} color={"white"} />
                 </TouchableOpacity>
               </View>
-            ))}
-
-            <TouchableOpacity
-              style={styles.addTagButton}
-              onPress={handleAddTagButtonPress}
-            >
-              <Text style={{}}>+ Add Tag</Text>
-            </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.addTagButton}
+                onPress={() => setIsCategoryModalVisible(true)}
+              >
+                <Text style={styles.addTagText}>+ Add Category</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
+          <CategorySelectionModal
+            isVisible={isCategoryModalVisible}
+            onClose={() => setIsCategoryModalVisible(false)}
+            selectedCategory={selectedCategory}
+            onSelectCategory={handleSelectCategory}
+          />
 
           <View style={styles.textContainer}>
             <TextInput
@@ -395,6 +426,10 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: 8,
   },
+  addTagText: {
+    color: "#a084ca",
+    fontWeight: "bold",
+  },
 
   // Text Section
   textContainer: {
@@ -413,7 +448,7 @@ const styles = StyleSheet.create({
   descriptionInput: {
     fontSize: 16,
     overflow: "scroll",
-    flex: 1
+    flex: 1,
   },
 
   // Action Section

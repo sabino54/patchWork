@@ -24,10 +24,19 @@ import { Ionicons } from "@expo/vector-icons";
 
 const categories = [
   "All",
-  "Music & Audio",
   "Visual Arts",
+  "Digital Art",
+  "Photography",
+  "Music & Audio",
   "Performance",
-  "Writing & Language",
+  "Writing & Poetry",
+  "Design",
+  "Craft & DIY",
+  "Film & Video",
+  "Animation",
+  "Fashion",
+  "Architecture",
+  "Mixed Media",
 ] as const;
 
 export default function Index() {
@@ -89,6 +98,19 @@ export default function Index() {
     });
     setFilteredPosts(filtered);
   }, [searchQuery, posts]);
+
+  // Filter posts based on selected category
+  useEffect(() => {
+    if (selectedCategory === "All") {
+      setFilteredPosts(posts);
+      return;
+    }
+
+    const filtered = posts.filter((post) => {
+      return post.tags && post.tags.includes(selectedCategory);
+    });
+    setFilteredPosts(filtered);
+  }, [selectedCategory, posts]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -222,6 +244,7 @@ export default function Index() {
 
       {/* Feed */}
       <ScrollView
+        showsVerticalScrollIndicator={false}
         style={styles.feed}
         refreshControl={
           <RefreshControl
@@ -246,7 +269,9 @@ export default function Index() {
             <Text style={styles.noResultsText}>
               {searchQuery
                 ? "No posts found matching your search"
-                : "No posts available"}
+                : selectedCategory === "All"
+                ? "No posts available"
+                : `No posts found in ${selectedCategory} category`}
             </Text>
           </View>
         ) : (
@@ -287,11 +312,7 @@ export default function Index() {
                   </View>
                 )}
                 {post.media_type === "audio" && (
-                  <AudioPlayer
-                    url={post.media_url}
-                    title={post.title}
-                    artist={post.user.username}
-                  />
+                  <AudioPlayer url={post.media_url} />
                 )}
               </View>
               <View style={styles.postContent}>
@@ -300,9 +321,7 @@ export default function Index() {
                 <View style={styles.postFooter}>
                   <View style={styles.tagContainer}>
                     <View style={styles.tag}>
-                      <Text style={styles.tagText}>
-                        {post.project} COOL ART
-                      </Text>
+                      <Text style={styles.tagText}>{post.tags}</Text>
                     </View>
                   </View>
                   <Text style={styles.comments}>0 comments</Text>
@@ -381,10 +400,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     margin: 12,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
   postHeader: {
     flexDirection: "row",
