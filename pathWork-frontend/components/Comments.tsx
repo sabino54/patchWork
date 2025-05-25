@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { getComments, addComment, deleteComment } from '../lib/comments';
+import { getComments, addComment, deleteComment, deleteCommentAsMod, checkIfUserIsMod } from '../lib/comments';
 
 interface CommentProps {
   postId: string;
@@ -13,6 +13,7 @@ export default function Comments({ postId, userId }: CommentProps) {
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMod, setIsMod] = useState(false);
 
   const fetchComments = async () => {
     setLoading(true);
@@ -29,7 +30,9 @@ export default function Comments({ postId, userId }: CommentProps) {
 
   useEffect(() => {
     fetchComments();
-  }, [postId]);
+    // Check if current user is a moderator
+    checkIfUserIsMod(userId).then(setIsMod);
+  }, [postId, userId]);
 
   const handleAddComment = async () => {
     if (!commentText.trim()) return;
@@ -42,6 +45,21 @@ export default function Comments({ postId, userId }: CommentProps) {
       setError(err.message || 'Failed to add comment');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string, commentUserId: string) => {
+    try {
+      if (isMod) {
+        // Moderators can delete any comment
+        await deleteCommentAsMod(commentId);
+      } else if (commentUserId === userId) {
+        // Users can only delete their own comments
+        await deleteComment(commentId);
+      }
+      fetchComments();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete comment');
     }
   };
 
@@ -58,13 +76,10 @@ export default function Comments({ postId, userId }: CommentProps) {
             <View key={item.id} style={styles.commentItem}>
               <Text style={styles.username}>{item.public_profiles?.username || 'User'}</Text>
               <Text style={styles.commentText}>{item.comment_text}</Text>
-              {item.user_id === userId && (
+              {(item.user_id === userId || isMod) && (
                 <TouchableOpacity
                   style={styles.deleteButton}
-                  onPress={async () => {
-                    await deleteComment(item.id);
-                    fetchComments();
-                  }}
+                  onPress={() => handleDeleteComment(item.id, item.user_id)}
                 >
                   <Text style={styles.deleteButtonText}>Delete</Text>
                 </TouchableOpacity>

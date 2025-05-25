@@ -8,6 +8,7 @@ export interface User {
   username: string;
   bio: string;
   profile_photo: string;
+  mod?: boolean;
 }
 
 export interface Post {
@@ -51,7 +52,7 @@ export async function getPosts(): Promise<Post[]> {
     .select(
       `
             *,
-            user:public_profiles(*)
+            user:public_profiles(*, mod)
         `,
     )
     .order('created_at', { ascending: false });
@@ -87,7 +88,7 @@ export async function getPostsByUsername(username: string): Promise<Post[]> {
     .select(
       `
             *,
-            user:public_profiles(*)
+            user:public_profiles(*, mod)
         `,
     )
     .eq('user_id', userData.id)
@@ -169,4 +170,38 @@ export async function createPost({
   }
 
   return data;
+}
+
+/**
+ * Delete a post by its id. Only moderators should be able to call this.
+ */
+export async function deletePost(postId: string) {
+  const { data, error } = await supabase
+    .from('posts')
+    .delete()
+    .eq('id', postId);
+  
+  if (error) {
+    throw new Error(`Error deleting post: ${error.message}`);
+  }
+  
+  return data;
+}
+
+/**
+ * Check if the current user is a moderator.
+ */
+export async function checkIfUserIsMod(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('public_profiles')
+    .select('mod')
+    .eq('id', userId)
+    .single();
+  
+  if (error) {
+    console.error('Error checking mod status:', error);
+    return false;
+  }
+  
+  return data?.mod === true;
 }

@@ -13,9 +13,10 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { getPosts, Post } from "../../lib/posts";
+import { getPosts, Post, deletePost, checkIfUserIsMod } from "../../lib/posts";
 import VideoPlayer from "../../components/VideoPlayer";
 import LinkDisplay from "../../components/LinkDisplay";
 import AudioPlayer from "../../components/AudioPlayer";
@@ -57,6 +58,7 @@ export default function Index() {
   const textOpacity = useRef(new Animated.Value(1)).current;
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isMod, setIsMod] = useState(false);
 
   const toggleSearch = () => {
     const toValue = isSearchVisible ? 0 : 1;
@@ -105,7 +107,11 @@ export default function Index() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id || null);
+      const userId = data.user?.id || null;
+      setCurrentUserId(userId);
+      if (userId) {
+        checkIfUserIsMod(userId).then(setIsMod);
+      }
     });
   }, []);
   // Filter posts based on selected category
@@ -153,6 +159,32 @@ export default function Index() {
 
   const closeImageViewer = () => {
     setSelectedImage(null);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePost(postId);
+              loadPosts(); // Refresh the posts list
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete post");
+              console.error("Error deleting post:", error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -338,6 +370,14 @@ export default function Index() {
               </View>
               {currentUserId && (
                 <Comments postId={post.id} userId={currentUserId} />
+              )}
+              {isMod && (
+                <TouchableOpacity
+                  onPress={() => handleDeletePost(post.id)}
+                  style={styles.moderationButton}
+                >
+                  <Text style={styles.moderationButtonText}>Delete Post</Text>
+                </TouchableOpacity>
               )}
             </View>
           ))
@@ -643,6 +683,20 @@ const styles = StyleSheet.create({
   fullScreenImage: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
+  },
+  moderationButton: {
+    backgroundColor: "#ff4444",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    marginHorizontal: 14,
+    marginBottom: 8,
+    alignItems: "center",
+  },
+  moderationButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
   },
 });
 

@@ -21,6 +21,7 @@ export default function UserProfile() {
     username: string;
     bio: string;
     profile_photo: string;
+    mod?: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,7 +41,7 @@ export default function UserProfile() {
 
       const { data, error } = await supabase
         .from("public_profiles")
-        .select("username, bio, profile_photo")
+        .select("username, bio, profile_photo, mod")
         .eq("id", user.id)
         .single();
 
@@ -104,10 +105,17 @@ export default function UserProfile() {
             source={{ uri: userData?.profile_photo }}
             style={styles.profileImage}
           />
-          <Text style={styles.name}>{userData?.username}</Text>
-          <Text style={styles.username}>
-            @{userData?.username || "username"}
-          </Text>
+          <View style={styles.nameContainer}>
+            <Text style={styles.name}>{userData?.username}</Text>
+            <Text style={styles.username}>
+              @{userData?.username || "username"}
+            </Text>
+            {userData?.mod && (
+              <View style={styles.adminBadge}>
+                <Text style={styles.adminText}>MODERATOR</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.statsContainer}>
@@ -151,6 +159,9 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     marginBottom: 10,
+  },
+  nameContainer: {
+    alignItems: "center",
   },
   name: {
     fontSize: 24,
