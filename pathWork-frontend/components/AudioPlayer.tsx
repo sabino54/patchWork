@@ -1,19 +1,13 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
 import { Audio } from "expo-av";
 import { MaterialIcons } from "@expo/vector-icons";
 
 interface AudioPlayerProps {
   url: string;
-  title?: string;
-  artist?: string;
 }
 
-const AudioPlayer = ({
-  url,
-  title = "Untitled",
-  artist = "Unknown Artist",
-}: AudioPlayerProps) => {
+const AudioPlayer = ({ url }: AudioPlayerProps) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -79,19 +73,7 @@ const AudioPlayer = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.audioContent}>
-        {/* <Image */}
-        {/*   source={require("../assets/images/splash-icon.png")} */}
-        {/*   style={styles.audioAvatar} */}
-        {/* /> */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={styles.artist} numberOfLines={1}>
-            {artist}
-          </Text>
-        </View>
+      <View style={styles.controlsContainer}>
         <TouchableOpacity
           style={styles.playButton}
           onPress={handlePlayPause}
@@ -103,15 +85,14 @@ const AudioPlayer = ({
             color="#8d5fd3"
           />
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: `${progress}%` }]} />
-        </View>
-        <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>{formatTime(position)}</Text>
-          <Text style={styles.timeText}>{formatTime(duration)}</Text>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progress, { width: `${progress}%` }]} />
+          </View>
+          <View style={styles.timeContainer}>
+            <Text style={styles.timeText}>{formatTime(position)}</Text>
+            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -124,31 +105,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
-    marginVertical: 8,
+    marginVertical: 4,
   },
-  audioContent: {
+  controlsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-  },
-  audioAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  infoContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#222",
-    marginBottom: 2,
-  },
-  artist: {
-    fontSize: 14,
-    color: "#666",
   },
   playButton: {
     width: 40,
@@ -157,9 +118,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#f2e9fa",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
   progressContainer: {
-    marginTop: 8,
+    flex: 1,
   },
   progressBar: {
     height: 4,

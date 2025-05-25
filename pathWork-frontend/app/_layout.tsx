@@ -49,6 +49,11 @@ export default function RootLayout() {
             },
             headerShadowVisible: false,
             headerBackTitle: " ",
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()}>
+                <Ionicons name="chevron-back" size={24} color="#8d5fd3" />
+              </TouchableOpacity>
+            ),
           }}
         />
         <Stack.Screen
