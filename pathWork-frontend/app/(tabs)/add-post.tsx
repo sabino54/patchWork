@@ -9,23 +9,23 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { FontAwesome } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { UploadImage } from "@/components/uploadImage";
+import { MediaUploader } from "@/components/MediaUploader";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
-import { createPost, uploadImage } from "@/api/upload-post";
+import { createPost, PostMediaType, uploadMedia } from "@/lib/posts";
 import { useRouter } from "expo-router";
 
 export default function AddPost() {
   const router = useRouter();
 
-  const [selectedPostType, setSelectedPostType] = useState<"image" | "audio">(
-    "image",
-  );
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [selectedMediaType, setSelectedMediaType] =
+    useState<PostMediaType>("image");
+  const [media, setMedia] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
@@ -40,12 +40,17 @@ export default function AddPost() {
     });
   }, []);
 
-  // Upload image mutation
-  const uploadImageMutation = useMutation({
-    mutationFn: uploadImage,
+  // Clear media when mediaType changes
+  useEffect(() => {
+    setMedia(null);
+  }, [selectedMediaType]);
+
+  // Upload media mutation
+  const uploadMediaMutation = useMutation({
+    mutationFn: uploadMedia,
     onError: (error: Error) => {
       console.error(error.message);
-      Alert.alert("Error", "Failed to upload image");
+      Alert.alert("Error", `Failed to upload ${selectedMediaType}`);
     },
   });
 
@@ -57,7 +62,7 @@ export default function AddPost() {
       // Reset form
       setTitle("");
       setDescription("");
-      setImageUri(null);
+      setMedia(null);
       setTags([]);
 
       // navigate to the home screen
@@ -93,33 +98,49 @@ export default function AddPost() {
       return;
     }
 
+    if (selectedMediaType !== "link" && !media) {
+      Alert.alert(
+        "Error",
+        `Please upload a ${selectedMediaType} for your post`,
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // For image posts, upload the image first
-      if (selectedPostType === "image" && imageUri) {
-        // Upload the image and wait for it to complete
-        const uploadedImageUrl = await uploadImageMutation.mutateAsync({
-          imageUri,
+      // For media that needs to be uploaded (image, video, audio)
+      if (
+        (selectedMediaType === "image" ||
+          selectedMediaType === "video" ||
+          selectedMediaType === "audio") &&
+        media
+      ) {
+        // Upload the media and wait for it to complete
+        const uploadedMediaUrl = await uploadMediaMutation.mutateAsync({
+          mediaUri: media,
           userId: user.id,
         });
 
-        // After successful image upload, create the post with the image URL
+        // After successful media upload, create the post with the media URL
         await createPostMutation.mutateAsync({
           title,
           description,
           userId: user.id,
-          mediaUrl: uploadedImageUrl,
-          mediaType: selectedPostType,
+          publicMediaUrl: uploadedMediaUrl,
+          mediaType: selectedMediaType,
         });
-      } else {
-        // For audio posts or posts without media
+      }
+
+      // For link posts
+      else if (selectedMediaType === "link" && media) {
+        // For link posts, the mediaUrl contains the URL
         await createPostMutation.mutateAsync({
           title,
           description,
           userId: user.id,
-          mediaUrl: null,
-          mediaType: selectedPostType,
+          publicMediaUrl: media,
+          mediaType: selectedMediaType,
         });
       }
     } catch (error) {
@@ -131,82 +152,110 @@ export default function AddPost() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollView}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Create New Post</Text>
         </View>
-        <View style={styles.postTypes}>
-          <TouchableOpacity
-            style={[
-              styles.postTypeButton,
-              selectedPostType === "image" && styles.selectedPostType,
-            ]}
-            onPress={() => setSelectedPostType("image")}
-          >
-            <Text
+        <ScrollView
+          contentContainerStyle={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.postTypes}>
+            <TouchableOpacity
               style={[
-                styles.postTypeText,
-                selectedPostType === "image" && styles.selectedText,
+                styles.postTypeButton,
+                selectedMediaType === "image" && styles.selectedPostType,
               ]}
+              onPress={() => setSelectedMediaType("image")}
             >
-              Image
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.postTypeButton,
-              selectedPostType === "audio" && styles.selectedPostType,
-            ]}
-            onPress={() => setSelectedPostType("audio")}
-          >
-            <Text
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "image" && styles.selectedText,
+                ]}
+              >
+                Image
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                styles.postTypeText,
-                selectedPostType === "audio" && styles.selectedText,
+                styles.postTypeButton,
+                selectedMediaType === "video" && styles.selectedPostType,
               ]}
+              onPress={() => setSelectedMediaType("video")}
             >
-              Audio
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {selectedPostType === "image" && (
-          <UploadImage
-            imageUri={imageUri}
-            onImageSelection={(uri) => {
-              setImageUri(uri);
-            }}
-          />
-        )}
-
-        {selectedPostType === "audio" && (
-          <View style={styles.uploadContainer}>
-            <TouchableOpacity style={styles.uploadButton}>
-              <FontAwesome name="cloud-upload" size={30} color="#a084ca" />
-              <Text style={styles.uploadText}>Upload Audio</Text>
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "video" && styles.selectedText,
+                ]}
+              >
+                Video
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.postTypeButton,
+                selectedMediaType === "audio" && styles.selectedPostType,
+              ]}
+              onPress={() => setSelectedMediaType("audio")}
+            >
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "audio" && styles.selectedText,
+                ]}
+              >
+                Audio
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.postTypeButton,
+                selectedMediaType === "link" && styles.selectedPostType,
+              ]}
+              onPress={() => setSelectedMediaType("link")}
+            >
+              <Text
+                style={[
+                  styles.postTypeText,
+                  selectedMediaType === "link" && styles.selectedText,
+                ]}
+              >
+                Link
+              </Text>
             </TouchableOpacity>
           </View>
-        )}
 
-        <View style={styles.tagsContainer}>
-          {tags.map((tag, index) => (
-            <View key={index} style={styles.tagButton}>
-              <Text style={styles.tagText}>{tag}</Text>
-              <TouchableOpacity onPress={() => handleTagDelete(index)}>
-                <FontAwesome name="times" size={16} color={"white"} />
-              </TouchableOpacity>
-            </View>
-          ))}
+          <MediaUploader
+            mediaType={selectedMediaType}
+            mediaUri={media}
+            onMediaSelection={(uri: string) => {
+              setMedia(uri);
+            }}
+          />
 
-          <TouchableOpacity
-            style={styles.addTagButton}
-            onPress={handleAddTagButtonPress}
-          >
-            <Text style={{}}>+ Add Tag</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.tagsContainer}>
+            {tags.map((tag, index) => (
+              <View key={index} style={styles.tagButton}>
+                <Text style={styles.tagText}>{tag}</Text>
+                <TouchableOpacity onPress={() => handleTagDelete(index)}>
+                  <FontAwesome name="times" size={16} color={"white"} />
+                </TouchableOpacity>
+              </View>
+            ))}
 
-        <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={styles.addTagButton}
+              onPress={handleAddTagButtonPress}
+            >
+              <Text style={{}}>+ Add Tag</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.textContainer}>
             <TextInput
               placeholder="Enter a title"
@@ -224,25 +273,28 @@ export default function AddPost() {
               placeholderTextColor="#aaa"
             />
           </View>
-        </KeyboardAvoidingView>
 
-        <KeyboardAvoidingView style={styles.actionContainer}>
-          <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.postButton, isSubmitting && styles.disabledButton]}
-            onPress={handlePost}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <Text style={styles.postButtonText}>Post</Text>
-            )}
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </ScrollView>
+          <View style={styles.actionContainer}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.postButton, isSubmitting && styles.disabledButton]}
+              onPress={handlePost}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.postButtonText}>Post</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -253,10 +305,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f7f0fa",
   },
   scrollView: {
-    flex: 1,
+    flexGrow: 1,
     display: "flex",
     backgroundColor: "#f7f0fa",
     gap: 10,
+    paddingVertical: 10,
+    paddingBottom: 20,
   },
 
   // Header
@@ -344,11 +398,13 @@ const styles = StyleSheet.create({
 
   // Text Section
   textContainer: {
-    flex: 1,
+    height: 150,
     backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingVertical: 10,
+    flexDirection: "column",
     gap: 5,
+    flex: 0,
   },
   titleInput: {
     fontSize: 16,
@@ -356,11 +412,13 @@ const styles = StyleSheet.create({
   },
   descriptionInput: {
     fontSize: 16,
-    minHeight: 100,
+    overflow: "scroll",
+    flex: 1
   },
 
   // Action Section
   actionContainer: {
+    flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 10,
@@ -373,6 +431,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
+    height: 40,
   },
   postButtonText: {
     color: "white",
@@ -387,6 +446,7 @@ const styles = StyleSheet.create({
     borderColor: "#a084ca",
     alignItems: "center",
     justifyContent: "center",
+    height: 40,
   },
   cancelButtonText: {
     color: "#a084ca",
