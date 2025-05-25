@@ -38,6 +38,7 @@ async function createProfile(user: User, username: string) {
   ]);
   if (error) {
     // TODO: handle duplicate username error
+    console.error("Error creating profile:", error);
     Alert.alert("Profile creation failed: " + error.message);
   }
 }
@@ -70,7 +71,10 @@ export default function Auth() {
       password: password,
     });
     if (user) createProfile(user, username);
-    if (error) Alert.alert(error.message);
+    if (error) {
+      console.error("Error signing up:", error);
+      Alert.alert(error.message);
+    }
     if (!session)
       Alert.alert("Please check your inbox for email verification!");
     setLoading(false);
