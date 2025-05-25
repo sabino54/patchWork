@@ -64,6 +64,43 @@ export async function getPosts(): Promise<Post[]> {
   return (data || []).map(transformPost);
 }
 
+export async function getPostsByUsername(username: string): Promise<Post[]> {
+  // First, get the user ID from the username
+  const { data: userData, error: userError } = await supabase
+    .from('public_profiles')
+    .select('id')
+    .eq('username', username)
+    .single();
+
+  if (userError) {
+    console.error('Error fetching user by username:', userError);
+    throw userError;
+  }
+
+  if (!userData) {
+    return [];
+  }
+
+  // Then get posts by user ID
+  const { data, error } = await supabase
+    .from('posts')
+    .select(
+      `
+            *,
+            user:public_profiles(*)
+        `,
+    )
+    .eq('user_id', userData.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching posts by username:', error);
+    throw error;
+  }
+
+  return (data || []).map(transformPost);
+}
+
 // Helper function to convert media URI to array buffer
 const fetchMediaFromUri = async (uri: string) => {
   const response = await fetch(uri);
