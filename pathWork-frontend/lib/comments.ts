@@ -52,18 +52,6 @@ export async function deleteComment(comment_id: string) {
 }
 
 /**
- * Delete a comment by its id as a moderator (can delete any comment).
- */
-export async function deleteCommentAsMod(comment_id: string) {
-    const { data, error } = await supabase
-      .from('comments')
-      .delete()
-      .eq('id', comment_id);
-    if (error) throw error;
-    return data;
-}
-
-/**
  * Check if the current user is a moderator.
  */
 export async function checkIfUserIsMod(userId: string): Promise<boolean> {
