@@ -366,7 +366,19 @@ export default function Index() {
                 >
                   <Text style={styles.username}>{post.user.username}</Text>
                 </TouchableOpacity>
-                <Text style={styles.time}>{formatTime(post.created_at)}</Text>
+                <View style={styles.tagContainer}>
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>{post.tags}</Text>
+                  </View>
+                </View>
+                {currentUserId === post.user.id && (
+                  <TouchableOpacity
+                    onPress={() => handleDeletePost(post.id)}
+                    style={styles.deleteIcon}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={styles.mediaContainer}>
                 {post.media_type === "image" && (
@@ -395,11 +407,7 @@ export default function Index() {
                 <Text style={styles.postTitle}>{post.title}</Text>
                 <Text style={styles.postText}>{post.description}</Text>
                 <View style={styles.postFooter}>
-                  <View style={styles.tagContainer}>
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>{post.tags}</Text>
-                    </View>
-                  </View>
+                  <Text style={styles.time}>{formatTime(post.created_at)}</Text>
                   <CommentCount postId={post.id} />
                 </View>
               </View>
@@ -509,7 +517,6 @@ const styles = StyleSheet.create({
   time: {
     color: "#aaa",
     fontSize: 12,
-    marginLeft: "auto",
   },
   mediaContainer: {
     width: "100%",
@@ -612,9 +619,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e0d6f7",
   },
   tagContainer: {
     flexDirection: "row",
+    marginLeft: 4, 
   },
   tag: {
     backgroundColor: "#f2e9fa",
@@ -749,6 +760,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#8d5fd3",
     marginLeft: 16,
+  },
+  deleteIcon: {
+    marginLeft: "auto",
+    padding: 4,
   },
 });
 
