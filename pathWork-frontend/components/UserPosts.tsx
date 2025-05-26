@@ -8,9 +8,15 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { getPostsByUsername, Post } from "../lib/posts";
+import {
+  getPostsByUsername,
+  Post,
+  deletePost,
+  checkIfUserIsMod,
+} from "../lib/posts";
 import VideoPlayer from "./VideoPlayer";
 import LinkDisplay from "./LinkDisplay";
 import AudioPlayer from "./AudioPlayer";
@@ -28,9 +34,19 @@ export default function UserPosts({ username }: UserPostsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isMod, setIsMod] = useState(false);
 
   useEffect(() => {
     loadUserPosts();
+    // Get current user ID and check if they're a moderator
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data.user?.id || null;
+      setCurrentUserId(userId);
+      if (userId) {
+        checkIfUserIsMod(userId).then(setIsMod);
+      }
+    });
   }, [username]);
 
   const loadUserPosts = async () => {
@@ -59,6 +75,32 @@ export default function UserPosts({ username }: UserPostsProps) {
 
   const closeImageViewer = () => {
     setSelectedImage(null);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePost(postId);
+              loadUserPosts(); // Refresh the posts list
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete post");
+              console.error("Error deleting post:", error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -121,9 +163,6 @@ export default function UserPosts({ username }: UserPostsProps) {
             >
               <Text style={styles.username}>{post.user.username}</Text>
             </TouchableOpacity>
-            <View style={styles.versionBadge}>
-              <Text style={styles.versionText}>v{post.version}</Text>
-            </View>
             <Text style={styles.time}>{formatTime(post.created_at)}</Text>
           </View>
           <View style={styles.mediaContainer}>
@@ -158,6 +197,14 @@ export default function UserPosts({ username }: UserPostsProps) {
                   <Text style={styles.tagText}>{post.tags}</Text>
                 </View>
               </View>
+              {(currentUserId === post.user_id || isMod) && (
+                <TouchableOpacity
+                  onPress={() => handleDeletePost(post.id)}
+                  style={styles.deleteIcon}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -202,6 +249,7 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontSize: 12,
     marginLeft: "auto",
+    marginRight: 8,
   },
   mediaContainer: {
     width: "100%",
@@ -226,7 +274,7 @@ const styles = StyleSheet.create({
   },
   postFooter: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
   },
@@ -298,4 +346,8 @@ const styles = StyleSheet.create({
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
   },
-}); 
+  deleteIcon: {
+    padding: 4,
+    marginLeft: 8,
+  },
+});

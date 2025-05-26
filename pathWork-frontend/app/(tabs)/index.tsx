@@ -59,6 +59,7 @@ export default function Index() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isMod, setIsMod] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   const toggleSearch = () => {
     const toValue = isSearchVisible ? 0 : 1;
@@ -187,6 +188,14 @@ export default function Index() {
     );
   };
 
+  const openCommentsModal = (post: Post) => {
+    setSelectedPost(post);
+  };
+
+  const closeCommentsModal = () => {
+    setSelectedPost(null);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -283,6 +292,31 @@ export default function Index() {
         </TouchableOpacity>
       </Modal>
 
+      {/* Comments Modal */}
+      <Modal
+        visible={!!selectedPost}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeCommentsModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.commentsModalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={closeCommentsModal}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#8d5fd3" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Comments</Text>
+            </View>
+            {selectedPost && currentUserId && (
+              <Comments postId={selectedPost.id} userId={currentUserId} />
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Feed */}
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -317,7 +351,11 @@ export default function Index() {
           </View>
         ) : (
           filteredPosts.map((post) => (
-            <View key={post.id} style={styles.postCard}>
+            <TouchableOpacity
+              key={post.id}
+              style={styles.postCard}
+              onPress={() => openCommentsModal(post)}
+            >
               <View style={styles.postHeader}>
                 <Image
                   source={{ uri: post.user.profile_photo }}
@@ -328,10 +366,19 @@ export default function Index() {
                 >
                   <Text style={styles.username}>{post.user.username}</Text>
                 </TouchableOpacity>
-                <View style={styles.versionBadge}>
-                  <Text style={styles.versionText}>v{post.version}</Text>
+                <View style={styles.tagContainer}>
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>{post.tags}</Text>
+                  </View>
                 </View>
-                <Text style={styles.time}>{formatTime(post.created_at)}</Text>
+                {currentUserId === post.user.id && (
+                  <TouchableOpacity
+                    onPress={() => handleDeletePost(post.id)}
+                    style={styles.deleteIcon}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={styles.mediaContainer}>
                 {post.media_type === "image" && (
@@ -360,17 +407,10 @@ export default function Index() {
                 <Text style={styles.postTitle}>{post.title}</Text>
                 <Text style={styles.postText}>{post.description}</Text>
                 <View style={styles.postFooter}>
-                  <View style={styles.tagContainer}>
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>{post.tags}</Text>
-                    </View>
-                  </View>
+                  <Text style={styles.time}>{formatTime(post.created_at)}</Text>
                   <CommentCount postId={post.id} />
                 </View>
               </View>
-              {currentUserId && (
-                <Comments postId={post.id} userId={currentUserId} />
-              )}
               {isMod && (
                 <TouchableOpacity
                   onPress={() => handleDeletePost(post.id)}
@@ -379,7 +419,7 @@ export default function Index() {
                   <Text style={styles.moderationButtonText}>Delete Post</Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -477,7 +517,6 @@ const styles = StyleSheet.create({
   time: {
     color: "#aaa",
     fontSize: 12,
-    marginLeft: "auto",
   },
   mediaContainer: {
     width: "100%",
@@ -580,9 +619,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e0d6f7",
   },
   tagContainer: {
     flexDirection: "row",
+    marginLeft: 4, 
   },
   tag: {
     backgroundColor: "#f2e9fa",
@@ -676,9 +719,8 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   fullScreenImage: {
     width: Dimensions.get("window").width,
@@ -698,6 +740,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
   },
+  commentsModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: "80%",
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#8d5fd3",
+    marginLeft: 16,
+  },
+  deleteIcon: {
+    marginLeft: "auto",
+    padding: 4,
+  },
 });
 
 // For testing purposes
@@ -708,11 +775,13 @@ function CommentCount({ postId }: { postId: string }) {
     getCommentCount(postId).then((c) => {
       if (isMounted) setCount(c);
     });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [postId]);
   return (
     <Text style={styles.comments}>
-      {count === null ? "..." : `${count} comment${count === 1 ? '' : 's'}`}
+      {count === null ? "..." : `${count} comment${count === 1 ? "" : "s"}`}
     </Text>
   );
 }

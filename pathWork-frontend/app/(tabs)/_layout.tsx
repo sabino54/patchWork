@@ -21,7 +21,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="home" size={30} color={color} />
+            <FontAwesome name="home" size={28} color={color} />
           ),
         }}
       />
@@ -30,7 +30,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="plus-square" size={30} color={color} />
+            <FontAwesome name="plus-square" size={28} color={color} />
           ),
         }}
       />
@@ -39,7 +39,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="comment" size={30} color={color} />
+            <FontAwesome name="comment" size={28} color={color} />
           ),
         }}
       />
@@ -48,7 +48,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="user" size={30} color={color} />
+            <FontAwesome name="user" size={28} color={color} />
           ),
         }}
       />
