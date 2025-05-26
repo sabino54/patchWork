@@ -16,7 +16,13 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { getPosts, Post, deletePost, checkIfUserIsMod } from "../../lib/posts";
+import {
+  getPosts,
+  Post,
+  deletePost,
+  checkIfUserIsMod,
+  getPostsFromFollowing,
+} from "../../lib/posts";
 import VideoPlayer from "../../components/VideoPlayer";
 import LinkDisplay from "../../components/LinkDisplay";
 import AudioPlayer from "../../components/AudioPlayer";
@@ -28,6 +34,7 @@ import { getCommentCount } from "../../lib/comments";
 
 const categories = [
   "All",
+  "Following",
   "Visual Arts",
   "Digital Art",
   "Photography",
@@ -47,7 +54,7 @@ export default function Index() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]>("All");
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [allPosts, setAllPosts] = useState<Post[]>([]); // Cache for all posts
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,18 +86,62 @@ export default function Index() {
     ]).start();
   };
 
+  // Initial load of all posts
   useEffect(() => {
-    loadPosts();
+    fetchAllPosts();
   }, []);
 
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data.user?.id || null;
+      setCurrentUserId(userId);
+      if (userId) {
+        checkIfUserIsMod(userId).then(setIsMod);
+      }
+    });
+  }, []);
+
+  // Handle category changes
+  useEffect(() => {
+    if (selectedCategory === "Following") {
+      if (!currentUserId) {
+        setError("Please sign in to view posts from people you follow");
+        setFilteredPosts([]);
+        return;
+      }
+      fetchFollowingPosts();
+    } else if (selectedCategory === "All") {
+      setFilteredPosts(allPosts);
+    } else {
+      const categoryPosts = allPosts.filter(
+        (post) => post.tags && post.tags.includes(selectedCategory)
+      );
+      setFilteredPosts(categoryPosts);
+    }
+  }, [selectedCategory, allPosts, currentUserId]);
+
+  // Handle search
   useEffect(() => {
     if (searchQuery.trim() === "") {
-      setFilteredPosts(posts);
+      // Reset to current category's posts
+      if (selectedCategory === "All") {
+        setFilteredPosts(allPosts);
+      } else if (selectedCategory === "Following") {
+        if (currentUserId) {
+          fetchFollowingPosts();
+        }
+      } else {
+        const categoryPosts = allPosts.filter(
+          (post) => post.tags && post.tags.includes(selectedCategory)
+        );
+        setFilteredPosts(categoryPosts);
+      }
       return;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    const filtered = posts.filter((post) => {
+    const filtered = allPosts.filter((post) => {
       const title = post.title?.toLowerCase() || "";
       const description = post.description?.toLowerCase() || "";
       const username = post.user?.username?.toLowerCase() || "";
@@ -104,39 +155,13 @@ export default function Index() {
       );
     });
     setFilteredPosts(filtered);
-  }, [searchQuery, posts]);
+  }, [searchQuery, allPosts, selectedCategory, currentUserId]);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const userId = data.user?.id || null;
-      setCurrentUserId(userId);
-      if (userId) {
-        checkIfUserIsMod(userId).then(setIsMod);
-      }
-    });
-  }, []);
-  // Filter posts based on selected category
-  useEffect(() => {
-    if (selectedCategory === "All") {
-      setFilteredPosts(posts);
-      return;
-    }
-
-    const filtered = posts.filter((post) => {
-      return post.tags && post.tags.includes(selectedCategory);
-    });
-    setFilteredPosts(filtered);
-  }, [selectedCategory, posts]);
-
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    loadPosts().finally(() => setRefreshing(false));
-  }, []);
-
-  const loadPosts = async () => {
+  const fetchAllPosts = async () => {
     try {
+      setLoading(true);
       const posts = await getPosts();
-      setPosts(posts);
+      setAllPosts(posts);
       setFilteredPosts(posts);
       setError(null);
     } catch (error) {
@@ -148,6 +173,29 @@ export default function Index() {
       setLoading(false);
     }
   };
+
+  const fetchFollowingPosts = async () => {
+    if (!currentUserId) return;
+
+    try {
+      setLoading(true);
+      const posts = await getPostsFromFollowing(currentUserId);
+      setFilteredPosts(posts);
+      setError(null);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+      console.error("Error loading posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchAllPosts().finally(() => setRefreshing(false));
+  }, []);
 
   const handleUserPress = (username: string) => {
     console.log("username", username);
@@ -177,7 +225,7 @@ export default function Index() {
           onPress: async () => {
             try {
               await deletePost(postId);
-              loadPosts(); // Refresh the posts list
+              fetchAllPosts(); // Refresh the posts list
             } catch (error) {
               Alert.alert("Error", "Failed to delete post");
               console.error("Error deleting post:", error);
@@ -625,7 +673,7 @@ const styles = StyleSheet.create({
   },
   tagContainer: {
     flexDirection: "row",
-    marginLeft: 4, 
+    marginLeft: 4,
   },
   tag: {
     backgroundColor: "#f2e9fa",
