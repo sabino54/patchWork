@@ -8,8 +8,16 @@ import {
   ActivityIndicator,
   ScrollView,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
-import { getComments, addComment, deleteComment, checkIfUserIsMod } from "../lib/comments";
+import {
+  getComments,
+  addComment,
+  deleteComment,
+  deleteCommentAsMod,
+  checkIfUserIsMod,
+} from "../lib/comments";
 import { Ionicons } from "@expo/vector-icons";
 
 interface CommentProps {
@@ -58,7 +66,10 @@ export default function Comments({ postId, userId }: CommentProps) {
     }
   };
 
-  const handleDeleteComment = async (commentId: string, commentUserId: string) => {
+  const handleDeleteComment = async (
+    commentId: string,
+    commentUserId: string
+  ) => {
     try {
       if (isMod) {
         // Moderators can delete any comment
@@ -69,12 +80,16 @@ export default function Comments({ postId, userId }: CommentProps) {
       }
       fetchComments();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete comment');
+      setError(err.message || "Failed to delete comment");
     }
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 180 : 0}
+    >
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#8d5fd3" />
@@ -161,7 +176,7 @@ export default function Comments({ postId, userId }: CommentProps) {
           <Text style={styles.error}>{error}</Text>
         </View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
