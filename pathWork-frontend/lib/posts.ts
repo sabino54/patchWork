@@ -1,7 +1,7 @@
-import { supabase } from './supabase';
-import uuid from 'react-native-uuid';
+import { supabase } from "./supabase";
+import uuid from "react-native-uuid";
 
-export type PostMediaType = 'image' | 'audio' | 'video' | 'link';
+export type PostMediaType = "image" | "audio" | "video" | "link";
 
 export interface User {
   id: string;
@@ -48,17 +48,17 @@ function transformPost(data: any): Post {
 
 export async function getPosts(): Promise<Post[]> {
   const { data, error } = await supabase
-    .from('posts')
+    .from("posts")
     .select(
       `
             *,
             user:public_profiles(*, mod)
-        `,
+        `
     )
-    .order('created_at', { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) {
-    console.error('Error fetching posts:', error);
+    console.error("Error fetching posts:", error);
     throw error;
   }
 
@@ -68,13 +68,13 @@ export async function getPosts(): Promise<Post[]> {
 export async function getPostsByUsername(username: string): Promise<Post[]> {
   // First, get the user ID from the username
   const { data: userData, error: userError } = await supabase
-    .from('public_profiles')
-    .select('id')
-    .eq('username', username)
+    .from("public_profiles")
+    .select("id")
+    .eq("username", username)
     .single();
 
   if (userError) {
-    console.error('Error fetching user by username:', userError);
+    console.error("Error fetching user by username:", userError);
     throw userError;
   }
 
@@ -84,18 +84,18 @@ export async function getPostsByUsername(username: string): Promise<Post[]> {
 
   // Then get posts by user ID
   const { data, error } = await supabase
-    .from('posts')
+    .from("posts")
     .select(
       `
             *,
             user:public_profiles(*, mod)
-        `,
+        `
     )
-    .eq('user_id', userData.id)
-    .order('created_at', { ascending: false });
+    .eq("user_id", userData.id)
+    .order("created_at", { ascending: false });
 
   if (error) {
-    console.error('Error fetching posts by username:', error);
+    console.error("Error fetching posts by username:", error);
     throw error;
   }
 
@@ -119,12 +119,12 @@ export async function uploadMedia({
   // Convert the media URI to a Blob and generate a unique filename
   const mediaArray = await fetchMediaFromUri(mediaUri);
   const randomUUID = uuid.v4();
-  const fileExtension = mediaUri.split('.').pop();
+  const fileExtension = mediaUri.split(".").pop();
   const filename = `${userId}/${randomUUID}.${fileExtension}`;
 
   // Upload the media to Supabase storage
   const { data, error } = await supabase.storage
-    .from('posts')
+    .from("posts")
     .upload(filename, mediaArray);
 
   if (error) {
@@ -132,7 +132,7 @@ export async function uploadMedia({
   }
 
   // Get the public URL of the uploaded media
-  const publicUrl = supabase.storage.from('posts').getPublicUrl(filename)
+  const publicUrl = supabase.storage.from("posts").getPublicUrl(filename)
     .data.publicUrl;
 
   return publicUrl;
@@ -154,7 +154,7 @@ export async function createPost({
   tag: string[];
 }): Promise<Post[]> {
   const { data, error } = await supabase
-    .from('posts')
+    .from("posts")
     .insert({
       title,
       description,
@@ -177,14 +177,14 @@ export async function createPost({
  */
 export async function deletePost(postId: string) {
   const { data, error } = await supabase
-    .from('posts')
+    .from("posts")
     .delete()
-    .eq('id', postId);
-  
+    .eq("id", postId);
+
   if (error) {
     throw new Error(`Error deleting post: ${error.message}`);
   }
-  
+
   return data;
 }
 
@@ -193,15 +193,54 @@ export async function deletePost(postId: string) {
  */
 export async function checkIfUserIsMod(userId: string): Promise<boolean> {
   const { data, error } = await supabase
-    .from('public_profiles')
-    .select('mod')
-    .eq('id', userId)
+    .from("public_profiles")
+    .select("mod")
+    .eq("id", userId)
     .single();
-  
+
   if (error) {
-    console.error('Error checking mod status:', error);
+    console.error("Error checking mod status:", error);
     return false;
   }
-  
+
   return data?.mod === true;
+}
+
+export async function getPostsFromFollowing(userId: string): Promise<Post[]> {
+  // First get all the users that the current user follows
+  const { data: followingData, error: followingError } = await supabase
+    .from("follows")
+    .select("followed_id")
+    .eq("follower_id", userId);
+
+  if (followingError) {
+    console.error("Error fetching following:", followingError);
+    throw followingError;
+  }
+
+  if (!followingData || followingData.length === 0) {
+    return [];
+  }
+
+  // Get all posts from followed users
+  const { data, error } = await supabase
+    .from("posts")
+    .select(
+      `
+      *,
+      user:public_profiles(*, mod)
+    `
+    )
+    .in(
+      "user_id",
+      followingData.map((f) => f.followed_id)
+    )
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching posts from following:", error);
+    throw error;
+  }
+
+  return (data || []).map(transformPost);
 }
