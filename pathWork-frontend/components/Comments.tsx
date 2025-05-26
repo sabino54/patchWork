@@ -73,7 +73,7 @@ export default function Comments({ postId, userId }: CommentProps) {
     try {
       if (isMod) {
         // Moderators can delete any comment
-        await deleteCommentAsMod(commentId);
+        await deleteComment(commentId);
       } else if (commentUserId === userId) {
         // Users can only delete their own comments
         await deleteComment(commentId);
@@ -123,12 +123,11 @@ export default function Comments({ postId, userId }: CommentProps) {
                       </Text>
                     </View>
                   </View>
-                  {item.user_id === userId && (
+                  {(item.user_id === userId || isMod) && (
                     <TouchableOpacity
                       style={styles.deleteButton}
                       onPress={async () => {
-                        await deleteComment(item.id);
-                        fetchComments();
+                        await handleDeleteComment(item.id, item.user_id);
                       }}
                     >
                       <Ionicons

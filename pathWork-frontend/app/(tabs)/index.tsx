@@ -198,7 +198,6 @@ export default function Index() {
   }, []);
 
   const handleUserPress = (username: string) => {
-    console.log("username", username);
     router.push(`/user/${username.replace("@", "")}` as any);
   };
 
@@ -419,7 +418,7 @@ export default function Index() {
                     <Text style={styles.tagText}>{post.tags}</Text>
                   </View>
                 </View>
-                {currentUserId === post.user.id && (
+                {(currentUserId === post.user.id || isMod) && (
                   <TouchableOpacity
                     onPress={() => handleDeletePost(post.id)}
                     style={styles.deleteIcon}
@@ -459,14 +458,6 @@ export default function Index() {
                   <CommentCount postId={post.id} />
                 </View>
               </View>
-              {isMod && (
-                <TouchableOpacity
-                  onPress={() => handleDeletePost(post.id)}
-                  style={styles.moderationButton}
-                >
-                  <Text style={styles.moderationButtonText}>Delete Post</Text>
-                </TouchableOpacity>
-              )}
             </TouchableOpacity>
           ))
         )}
@@ -773,20 +764,6 @@ const styles = StyleSheet.create({
   fullScreenImage: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
-  },
-  moderationButton: {
-    backgroundColor: "#ff4444",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-    marginHorizontal: 14,
-    marginBottom: 8,
-    alignItems: "center",
-  },
-  moderationButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold",
   },
   commentsModalContent: {
     backgroundColor: "#fff",

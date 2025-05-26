@@ -23,6 +23,8 @@ import AudioPlayer from "./AudioPlayer";
 import formatTime from "./timeFormat";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
+import Comments from "./Comments";
+import { getCommentCount } from "../lib/comments";
 
 interface UserPostsProps {
   username: string;
@@ -36,6 +38,7 @@ export default function UserPosts({ username }: UserPostsProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isMod, setIsMod] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   useEffect(() => {
     loadUserPosts();
@@ -103,6 +106,14 @@ export default function UserPosts({ username }: UserPostsProps) {
     );
   };
 
+  const openCommentsModal = (post: Post) => {
+    setSelectedPost(post);
+  };
+
+  const closeCommentsModal = () => {
+    setSelectedPost(null);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -150,9 +161,38 @@ export default function UserPosts({ username }: UserPostsProps) {
         </TouchableOpacity>
       </Modal>
 
+      {/* Comments Modal */}
+      <Modal
+        visible={!!selectedPost}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeCommentsModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.commentsModalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={closeCommentsModal}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#8d5fd3" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Comments</Text>
+            </View>
+            {selectedPost && currentUserId && (
+              <Comments postId={selectedPost.id} userId={currentUserId} />
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Posts */}
       {posts.map((post) => (
-        <View key={post.id} style={styles.postCard}>
+        <TouchableOpacity
+          key={post.id}
+          style={styles.postCard}
+          onPress={() => openCommentsModal(post)}
+        >
           <View style={styles.postHeader}>
             <Image
               source={{ uri: post.user.profile_photo }}
@@ -206,8 +246,12 @@ export default function UserPosts({ username }: UserPostsProps) {
                 </TouchableOpacity>
               )}
             </View>
+            <View style={styles.postBottomInfo}>
+              <Text style={styles.time}>{formatTime(post.created_at)}</Text>
+              <CommentCount postId={post.id} />
+            </View>
           </View>
-        </View>
+        </TouchableOpacity>
       ))}
     </View>
   );
@@ -338,9 +382,8 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   fullScreenImage: {
     width: Dimensions.get("window").width,
@@ -350,4 +393,55 @@ const styles = StyleSheet.create({
     padding: 4,
     marginLeft: 8,
   },
+  commentsModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: "80%",
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#8d5fd3",
+    marginLeft: 16,
+  },
+  postBottomInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  comments: {
+    color: "#8d5fd3",
+    fontSize: 13,
+    fontWeight: "500",
+  },
 });
+
+// Comment Count Component
+function CommentCount({ postId }: { postId: string }) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    let isMounted = true;
+    getCommentCount(postId).then((c) => {
+      if (isMounted) setCount(c);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [postId]);
+  return (
+    <Text style={styles.comments}>
+      {count === null ? "..." : `${count} comment${count === 1 ? "" : "s"}`}
+    </Text>
+  );
+}
