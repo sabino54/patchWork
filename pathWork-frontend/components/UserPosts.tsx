@@ -8,15 +8,23 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { getPostsByUsername, Post } from "../lib/posts";
+import {
+  getPostsByUsername,
+  Post,
+  deletePost,
+  checkIfUserIsMod,
+} from "../lib/posts";
 import VideoPlayer from "./VideoPlayer";
 import LinkDisplay from "./LinkDisplay";
 import AudioPlayer from "./AudioPlayer";
 import formatTime from "./timeFormat";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
+import Comments from "./Comments";
+import { getCommentCount } from "../lib/comments";
 
 interface UserPostsProps {
   username: string;
@@ -28,9 +36,20 @@ export default function UserPosts({ username }: UserPostsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isMod, setIsMod] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   useEffect(() => {
     loadUserPosts();
+    // Get current user ID and check if they're a moderator
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data.user?.id || null;
+      setCurrentUserId(userId);
+      if (userId) {
+        checkIfUserIsMod(userId).then(setIsMod);
+      }
+    });
   }, [username]);
 
   const loadUserPosts = async () => {
@@ -59,6 +78,40 @@ export default function UserPosts({ username }: UserPostsProps) {
 
   const closeImageViewer = () => {
     setSelectedImage(null);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePost(postId);
+              loadUserPosts(); // Refresh the posts list
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete post");
+              console.error("Error deleting post:", error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const openCommentsModal = (post: Post) => {
+    setSelectedPost(post);
+  };
+
+  const closeCommentsModal = () => {
+    setSelectedPost(null);
   };
 
   if (loading) {
@@ -108,9 +161,38 @@ export default function UserPosts({ username }: UserPostsProps) {
         </TouchableOpacity>
       </Modal>
 
+      {/* Comments Modal */}
+      <Modal
+        visible={!!selectedPost}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeCommentsModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.commentsModalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={closeCommentsModal}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#8d5fd3" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Comments</Text>
+            </View>
+            {selectedPost && currentUserId && (
+              <Comments postId={selectedPost.id} userId={currentUserId} />
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Posts */}
       {posts.map((post) => (
-        <View key={post.id} style={styles.postCard}>
+        <TouchableOpacity
+          key={post.id}
+          style={styles.postCard}
+          onPress={() => openCommentsModal(post)}
+        >
           <View style={styles.postHeader}>
             <Image
               source={{ uri: post.user.profile_photo }}
@@ -121,9 +203,6 @@ export default function UserPosts({ username }: UserPostsProps) {
             >
               <Text style={styles.username}>{post.user.username}</Text>
             </TouchableOpacity>
-            <View style={styles.versionBadge}>
-              <Text style={styles.versionText}>v{post.version}</Text>
-            </View>
             <Text style={styles.time}>{formatTime(post.created_at)}</Text>
           </View>
           <View style={styles.mediaContainer}>
@@ -158,9 +237,21 @@ export default function UserPosts({ username }: UserPostsProps) {
                   <Text style={styles.tagText}>{post.tags}</Text>
                 </View>
               </View>
+              {(currentUserId === post.user_id || isMod) && (
+                <TouchableOpacity
+                  onPress={() => handleDeletePost(post.id)}
+                  style={styles.deleteIcon}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.postBottomInfo}>
+              <Text style={styles.time}>{formatTime(post.created_at)}</Text>
+              <CommentCount postId={post.id} />
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       ))}
     </View>
   );
@@ -202,6 +293,7 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontSize: 12,
     marginLeft: "auto",
+    marginRight: 8,
   },
   mediaContainer: {
     width: "100%",
@@ -226,7 +318,7 @@ const styles = StyleSheet.create({
   },
   postFooter: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
   },
@@ -290,12 +382,66 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   fullScreenImage: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
   },
-}); 
+  deleteIcon: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  commentsModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: "80%",
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#8d5fd3",
+    marginLeft: 16,
+  },
+  postBottomInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  comments: {
+    color: "#8d5fd3",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+});
+
+// Comment Count Component
+function CommentCount({ postId }: { postId: string }) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    let isMounted = true;
+    getCommentCount(postId).then((c) => {
+      if (isMounted) setCount(c);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [postId]);
+  return (
+    <Text style={styles.comments}>
+      {count === null ? "..." : `${count} comment${count === 1 ? "" : "s"}`}
+    </Text>
+  );
+}

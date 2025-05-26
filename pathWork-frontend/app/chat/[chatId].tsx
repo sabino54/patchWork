@@ -78,7 +78,7 @@ export default function Chat() {
             avatar:
               msg.sender.profile_photo || "https://placeimg.com/140/140/any",
           },
-        })),
+        }))
       );
     } catch (error) {
       console.error("Error loading messages:", error);
@@ -209,6 +209,11 @@ export default function Chat() {
     );
   };
 
+  const handleUserPress = (username: string) => {
+    console.log("username", username);
+    router.push(`/user/${username.replace("@", "")}` as any);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -219,7 +224,16 @@ export default function Chat() {
           <Ionicons name="arrow-back" size={24} color="#8d5fd3" />
         </TouchableOpacity>
         {conversation && (
-          <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.headerContent}
+            onPress={() =>
+              handleUserPress(
+                conversation.user_a_id === user?.id
+                  ? conversation.user_b.username
+                  : conversation.user_a.username
+              )
+            }
+          >
             <Image
               source={{
                 uri:
@@ -236,7 +250,7 @@ export default function Chat() {
                 ? conversation.user_b.username
                 : conversation.user_a.username}
             </Text>
-          </View>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -259,6 +273,7 @@ export default function Chat() {
           messagesContainerStyle={styles.messagesContainer}
           onLoadEarlier={onRefresh}
           isLoadingEarlier={isRefreshing}
+          onPressAvatar={(user) => user.name && handleUserPress(user.name)}
           listViewProps={{
             refreshControl: (
               <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />

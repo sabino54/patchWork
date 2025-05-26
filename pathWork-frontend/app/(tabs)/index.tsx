@@ -13,9 +13,16 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { getPosts, Post } from "../../lib/posts";
+import {
+  getPosts,
+  Post,
+  deletePost,
+  checkIfUserIsMod,
+  getPostsFromFollowing,
+} from "../../lib/posts";
 import VideoPlayer from "../../components/VideoPlayer";
 import LinkDisplay from "../../components/LinkDisplay";
 import AudioPlayer from "../../components/AudioPlayer";
@@ -27,6 +34,7 @@ import { getCommentCount } from "../../lib/comments";
 
 const categories = [
   "All",
+  "Following",
   "Visual Arts",
   "Digital Art",
   "Photography",
@@ -46,7 +54,7 @@ export default function Index() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]>("All");
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [allPosts, setAllPosts] = useState<Post[]>([]); // Cache for all posts
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +65,8 @@ export default function Index() {
   const textOpacity = useRef(new Animated.Value(1)).current;
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isMod, setIsMod] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   const toggleSearch = () => {
     const toValue = isSearchVisible ? 0 : 1;
@@ -76,18 +86,62 @@ export default function Index() {
     ]).start();
   };
 
+  // Initial load of all posts
   useEffect(() => {
-    loadPosts();
+    fetchAllPosts();
   }, []);
 
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data.user?.id || null;
+      setCurrentUserId(userId);
+      if (userId) {
+        checkIfUserIsMod(userId).then(setIsMod);
+      }
+    });
+  }, []);
+
+  // Handle category changes
+  useEffect(() => {
+    if (selectedCategory === "Following") {
+      if (!currentUserId) {
+        setError("Please sign in to view posts from people you follow");
+        setFilteredPosts([]);
+        return;
+      }
+      fetchFollowingPosts();
+    } else if (selectedCategory === "All") {
+      setFilteredPosts(allPosts);
+    } else {
+      const categoryPosts = allPosts.filter(
+        (post) => post.tags && post.tags.includes(selectedCategory)
+      );
+      setFilteredPosts(categoryPosts);
+    }
+  }, [selectedCategory, allPosts, currentUserId]);
+
+  // Handle search
   useEffect(() => {
     if (searchQuery.trim() === "") {
-      setFilteredPosts(posts);
+      // Reset to current category's posts
+      if (selectedCategory === "All") {
+        setFilteredPosts(allPosts);
+      } else if (selectedCategory === "Following") {
+        if (currentUserId) {
+          fetchFollowingPosts();
+        }
+      } else {
+        const categoryPosts = allPosts.filter(
+          (post) => post.tags && post.tags.includes(selectedCategory)
+        );
+        setFilteredPosts(categoryPosts);
+      }
       return;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    const filtered = posts.filter((post) => {
+    const filtered = allPosts.filter((post) => {
       const title = post.title?.toLowerCase() || "";
       const description = post.description?.toLowerCase() || "";
       const username = post.user?.username?.toLowerCase() || "";
@@ -101,35 +155,13 @@ export default function Index() {
       );
     });
     setFilteredPosts(filtered);
-  }, [searchQuery, posts]);
+  }, [searchQuery, allPosts, selectedCategory, currentUserId]);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id || null);
-    });
-  }, []);
-  // Filter posts based on selected category
-  useEffect(() => {
-    if (selectedCategory === "All") {
-      setFilteredPosts(posts);
-      return;
-    }
-
-    const filtered = posts.filter((post) => {
-      return post.tags && post.tags.includes(selectedCategory);
-    });
-    setFilteredPosts(filtered);
-  }, [selectedCategory, posts]);
-
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    loadPosts().finally(() => setRefreshing(false));
-  }, []);
-
-  const loadPosts = async () => {
+  const fetchAllPosts = async () => {
     try {
+      setLoading(true);
       const posts = await getPosts();
-      setPosts(posts);
+      setAllPosts(posts);
       setFilteredPosts(posts);
       setError(null);
     } catch (error) {
@@ -142,8 +174,30 @@ export default function Index() {
     }
   };
 
+  const fetchFollowingPosts = async () => {
+    if (!currentUserId) return;
+
+    try {
+      setLoading(true);
+      const posts = await getPostsFromFollowing(currentUserId);
+      setFilteredPosts(posts);
+      setError(null);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+      console.error("Error loading posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchAllPosts().finally(() => setRefreshing(false));
+  }, []);
+
   const handleUserPress = (username: string) => {
-    console.log("username", username);
     router.push(`/user/${username.replace("@", "")}` as any);
   };
 
@@ -153,6 +207,40 @@ export default function Index() {
 
   const closeImageViewer = () => {
     setSelectedImage(null);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePost(postId);
+              fetchAllPosts(); // Refresh the posts list
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete post");
+              console.error("Error deleting post:", error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const openCommentsModal = (post: Post) => {
+    setSelectedPost(post);
+  };
+
+  const closeCommentsModal = () => {
+    setSelectedPost(null);
   };
 
   return (
@@ -251,6 +339,31 @@ export default function Index() {
         </TouchableOpacity>
       </Modal>
 
+      {/* Comments Modal */}
+      <Modal
+        visible={!!selectedPost}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeCommentsModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.commentsModalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={closeCommentsModal}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#8d5fd3" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Comments</Text>
+            </View>
+            {selectedPost && currentUserId && (
+              <Comments postId={selectedPost.id} userId={currentUserId} />
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Feed */}
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -285,7 +398,11 @@ export default function Index() {
           </View>
         ) : (
           filteredPosts.map((post) => (
-            <View key={post.id} style={styles.postCard}>
+            <TouchableOpacity
+              key={post.id}
+              style={styles.postCard}
+              onPress={() => openCommentsModal(post)}
+            >
               <View style={styles.postHeader}>
                 <Image
                   source={{ uri: post.user.profile_photo }}
@@ -296,10 +413,19 @@ export default function Index() {
                 >
                   <Text style={styles.username}>{post.user.username}</Text>
                 </TouchableOpacity>
-                <View style={styles.versionBadge}>
-                  <Text style={styles.versionText}>v{post.version}</Text>
+                <View style={styles.tagContainer}>
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>{post.tags}</Text>
+                  </View>
                 </View>
-                <Text style={styles.time}>{formatTime(post.created_at)}</Text>
+                {(currentUserId === post.user.id || isMod) && (
+                  <TouchableOpacity
+                    onPress={() => handleDeletePost(post.id)}
+                    style={styles.deleteIcon}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={styles.mediaContainer}>
                 {post.media_type === "image" && (
@@ -328,18 +454,11 @@ export default function Index() {
                 <Text style={styles.postTitle}>{post.title}</Text>
                 <Text style={styles.postText}>{post.description}</Text>
                 <View style={styles.postFooter}>
-                  <View style={styles.tagContainer}>
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>{post.tags}</Text>
-                    </View>
-                  </View>
+                  <Text style={styles.time}>{formatTime(post.created_at)}</Text>
                   <CommentCount postId={post.id} />
                 </View>
               </View>
-              {currentUserId && (
-                <Comments postId={post.id} userId={currentUserId} />
-              )}
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -437,7 +556,6 @@ const styles = StyleSheet.create({
   time: {
     color: "#aaa",
     fontSize: 12,
-    marginLeft: "auto",
   },
   mediaContainer: {
     width: "100%",
@@ -540,9 +658,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e0d6f7",
   },
   tagContainer: {
     flexDirection: "row",
+    marginLeft: 4,
   },
   tag: {
     backgroundColor: "#f2e9fa",
@@ -636,13 +758,37 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   fullScreenImage: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
+  },
+  commentsModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: "80%",
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#8d5fd3",
+    marginLeft: 16,
+  },
+  deleteIcon: {
+    marginLeft: "auto",
+    padding: 4,
   },
 });
 
@@ -654,11 +800,13 @@ function CommentCount({ postId }: { postId: string }) {
     getCommentCount(postId).then((c) => {
       if (isMounted) setCount(c);
     });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [postId]);
   return (
     <Text style={styles.comments}>
-      {count === null ? "..." : `${count} comment${count === 1 ? '' : 's'}`}
+      {count === null ? "..." : `${count} comment${count === 1 ? "" : "s"}`}
     </Text>
   );
 }

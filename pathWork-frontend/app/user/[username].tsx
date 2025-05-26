@@ -8,6 +8,7 @@ import {
   RefreshControl,
   SafeAreaView,
   Alert,
+  Modal,
 } from "react-native";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -19,6 +20,7 @@ import ArtworkFolders from "../../components/ArtworkFolders";
 import { Session } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
 import { createConversation } from "@/lib/messages";
+import Following from "../../components/Following";
 
 export default function UserProfile() {
   const router = useRouter();
@@ -28,10 +30,15 @@ export default function UserProfile() {
     username: string;
     bio: string;
     profile_photo: string;
+    mod?: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [postsCount, setPostsCount] = useState(0);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -46,6 +53,72 @@ export default function UserProfile() {
   useEffect(() => {
     fetchUserProfile();
   }, [username]);
+
+  useEffect(() => {
+    if (session?.user.id && userData?.id) {
+      checkFollowStatus();
+    }
+  }, [session?.user.id, userData?.id]);
+
+  useEffect(() => {
+    if (userData?.id) {
+      fetchFollowingCount();
+      fetchPostsCount();
+    }
+  }, [userData?.id]);
+
+  const checkFollowStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("follows")
+        .select("*")
+        .eq("follower_id", session?.user.id)
+        .eq("followed_id", userData?.id)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error checking follow status:", error);
+      }
+
+      setIsFollowing(!!data);
+    } catch (error) {
+      console.error("Error checking follow status:", error);
+    }
+  };
+
+  const handleFollowPress = async () => {
+    if (!session?.user.id || !userData?.id) return;
+
+    try {
+      if (isFollowing) {
+        // Unfollow
+        const { error } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_id", session.user.id)
+          .eq("followed_id", userData.id);
+
+        if (error) throw error;
+        setIsFollowing(false);
+      } else {
+        // Follow
+        const { error } = await supabase.from("follows").insert([
+          {
+            follower_id: session.user.id,
+            followed_id: userData.id,
+          },
+        ]);
+
+        if (error) throw error;
+        setIsFollowing(true);
+      }
+      // Refresh following count after follow/unfollow
+      fetchFollowingCount();
+    } catch (error) {
+      console.error("Error toggling follow status:", error);
+      Alert.alert("Error", "Failed to update follow status");
+    }
+  };
 
   const createConversationMutation = useMutation({
     mutationFn: createConversation,
@@ -63,7 +136,7 @@ export default function UserProfile() {
       setLoading(true);
       const { data, error } = await supabase
         .from("public_profiles")
-        .select("id, username, bio, profile_photo")
+        .select("id, username, bio, profile_photo, mod")
         .eq("username", username)
         .single();
 
@@ -85,6 +158,8 @@ export default function UserProfile() {
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await fetchUserProfile();
+    await fetchFollowingCount();
+    await fetchPostsCount();
     setRefreshing(false);
   }, []);
 
@@ -93,6 +168,38 @@ export default function UserProfile() {
       userAId: session?.user.id || "",
       userBId: userData?.id || "",
     });
+  };
+
+  const fetchFollowingCount = async () => {
+    if (!userData?.id) return;
+
+    try {
+      const { count, error } = await supabase
+        .from("follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", userData.id);
+
+      if (error) throw error;
+      setFollowingCount(count || 0);
+    } catch (error) {
+      console.error("Error fetching following count:", error);
+    }
+  };
+
+  const fetchPostsCount = async () => {
+    if (!userData?.id) return;
+
+    try {
+      const { count, error } = await supabase
+        .from("posts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userData.id);
+
+      if (error) throw error;
+      setPostsCount(count || 0);
+    } catch (error) {
+      console.error("Error fetching posts count:", error);
+    }
   };
 
   if (loading) {
@@ -129,24 +236,54 @@ export default function UserProfile() {
           <Text style={styles.username}>
             @{userData?.username || "username"}
           </Text>
-          <TouchableOpacity
-            style={styles.messageButton}
-            onPress={handleMessagePress}
-          >
-            <FontAwesome name="paper-plane" size={16} color="white" />
-            <Text style={styles.messageButtonText}>Message</Text>
-          </TouchableOpacity>
+          {userData?.mod && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminText}>MODERATOR</Text>
+            </View>
+          )}
+          <View style={styles.buttonContainer}>
+            {session?.user.id !== userData?.id && (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.followButton,
+                    isFollowing && styles.followingButton,
+                  ]}
+                  onPress={handleFollowPress}
+                >
+                  <Text
+                    style={[
+                      styles.followButtonText,
+                      isFollowing && styles.followingButtonText,
+                    ]}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.messageButton}
+                  onPress={handleMessagePress}
+                >
+                  <FontAwesome name="paper-plane" size={16} color="white" />
+                  <Text style={styles.messageButtonText}>Message</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statLabel}>Projects</Text>
+            <Text style={styles.statNumber}>{postsCount}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>64</Text>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() => setShowFollowing(true)}
+          >
+            <Text style={styles.statNumber}>{followingCount}</Text>
             <Text style={styles.statLabel}>Following</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.bioContainer}>
@@ -161,6 +298,31 @@ export default function UserProfile() {
           <UserPosts username={username as string} />
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showFollowing}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFollowing(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Following</Text>
+              <TouchableOpacity
+                onPress={() => setShowFollowing(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <Following
+              userId={userData?.id || ""}
+              onUserPress={() => setShowFollowing(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -190,8 +352,34 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 5,
   },
-  messageButton: {
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 10,
     marginTop: 10,
+  },
+  followButton: {
+    backgroundColor: "#a084ca",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  followingButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#a084ca",
+  },
+  followButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  followingButtonText: {
+    color: "#a084ca",
+  },
+  messageButton: {
     backgroundColor: "#a084ca",
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -250,5 +438,46 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 10,
     paddingHorizontal: 20,
+  },
+  adminBadge: {
+    backgroundColor: "#a084ca",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    marginTop: 5,
+  },
+  adminText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: "#f7f0fa",
+    marginTop: 100,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    backgroundColor: "white",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  closeButton: {
+    padding: 5,
   },
 });

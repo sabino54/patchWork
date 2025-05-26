@@ -49,4 +49,22 @@ export async function deleteComment(comment_id: string) {
       .eq('id', comment_id);
     if (error) throw error;
     return data;
-  } 
+}
+
+/**
+ * Check if the current user is a moderator.
+ */
+export async function checkIfUserIsMod(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('public_profiles')
+    .select('mod')
+    .eq('id', userId)
+    .single();
+  
+  if (error) {
+    console.error('Error checking mod status:', error);
+    return false;
+  }
+  
+  return data?.mod === true;
+} 
