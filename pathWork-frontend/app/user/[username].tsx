@@ -38,6 +38,7 @@ export default function UserProfile() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
   const [followingCount, setFollowingCount] = useState(0);
+  const [postsCount, setPostsCount] = useState(0);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -58,6 +59,13 @@ export default function UserProfile() {
       checkFollowStatus();
     }
   }, [session?.user.id, userData?.id]);
+
+  useEffect(() => {
+    if (userData?.id) {
+      fetchFollowingCount();
+      fetchPostsCount();
+    }
+  }, [userData?.id]);
 
   const checkFollowStatus = async () => {
     try {
@@ -150,6 +158,8 @@ export default function UserProfile() {
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await fetchUserProfile();
+    await fetchFollowingCount();
+    await fetchPostsCount();
     setRefreshing(false);
   }, []);
 
@@ -176,11 +186,21 @@ export default function UserProfile() {
     }
   };
 
-  useEffect(() => {
-    if (userData?.id) {
-      fetchFollowingCount();
+  const fetchPostsCount = async () => {
+    if (!userData?.id) return;
+
+    try {
+      const { count, error } = await supabase
+        .from("posts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userData.id);
+
+      if (error) throw error;
+      setPostsCount(count || 0);
+    } catch (error) {
+      console.error("Error fetching posts count:", error);
     }
-  }, [userData?.id]);
+  };
 
   if (loading) {
     return null;
@@ -254,8 +274,8 @@ export default function UserProfile() {
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statLabel}>Projects</Text>
+            <Text style={styles.statNumber}>{postsCount}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
           </View>
           <TouchableOpacity
             style={styles.statItem}

@@ -30,6 +30,7 @@ export default function UserProfile() {
   const [refreshing, setRefreshing] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
   const [followingCount, setFollowingCount] = useState(0);
+  const [postsCount, setPostsCount] = useState(0);
 
   useEffect(() => {
     fetchUserProfile();
@@ -38,14 +39,19 @@ export default function UserProfile() {
   useEffect(() => {
     if (userData?.id) {
       fetchFollowingCount();
+      fetchPostsCount();
     }
   }, [userData?.id]);
 
   useEffect(() => {
     if (userData?.id) {
       fetchFollowingCount();
-      // Refresh count every 5 seconds
-      const interval = setInterval(fetchFollowingCount, 5000);
+      fetchPostsCount();
+      // Refresh counts every 5 seconds
+      const interval = setInterval(() => {
+        fetchFollowingCount();
+        fetchPostsCount();
+      }, 5000);
       return () => clearInterval(interval);
     }
   }, [userData?.id]);
@@ -63,6 +69,22 @@ export default function UserProfile() {
       setFollowingCount(count || 0);
     } catch (error) {
       console.error("Error fetching following count:", error);
+    }
+  };
+
+  const fetchPostsCount = async () => {
+    if (!userData?.id) return;
+
+    try {
+      const { count, error } = await supabase
+        .from("posts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userData.id);
+
+      if (error) throw error;
+      setPostsCount(count || 0);
+    } catch (error) {
+      console.error("Error fetching posts count:", error);
     }
   };
 
@@ -100,6 +122,7 @@ export default function UserProfile() {
     setRefreshing(true);
     await fetchUserProfile();
     await fetchFollowingCount();
+    await fetchPostsCount();
     setRefreshing(false);
   }, []);
 
@@ -148,8 +171,8 @@ export default function UserProfile() {
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statLabel}>Projects</Text>
+            <Text style={styles.statNumber}>{postsCount}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
           </View>
           <TouchableOpacity
             style={styles.statItem}
