@@ -28,6 +28,7 @@ export default function UserProfile() {
     username: string;
     bio: string;
     profile_photo: string;
+    mod?: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,7 +64,7 @@ export default function UserProfile() {
       setLoading(true);
       const { data, error } = await supabase
         .from("public_profiles")
-        .select("id, username, bio, profile_photo")
+        .select("id, username, bio, profile_photo, mod")
         .eq("username", username)
         .single();
 
@@ -129,6 +130,11 @@ export default function UserProfile() {
           <Text style={styles.username}>
             @{userData?.username || "username"}
           </Text>
+          {userData?.mod && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminText}>MODERATOR</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={styles.messageButton}
             onPress={handleMessagePress}
@@ -250,5 +256,17 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 10,
     paddingHorizontal: 20,
+  },
+  adminBadge: {
+    backgroundColor: "#a084ca",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    marginTop: 5,
+  },
+  adminText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
   },
 });

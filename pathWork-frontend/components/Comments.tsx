@@ -9,7 +9,7 @@ import {
   ScrollView,
   Image,
 } from "react-native";
-import { getComments, addComment, deleteComment } from "../lib/comments";
+import { getComments, addComment, deleteComment, deleteCommentAsMod, checkIfUserIsMod } from "../lib/comments";
 import { Ionicons } from "@expo/vector-icons";
 
 interface CommentProps {
@@ -23,6 +23,7 @@ export default function Comments({ postId, userId }: CommentProps) {
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMod, setIsMod] = useState(false);
 
   const fetchComments = async () => {
     setLoading(true);
@@ -39,7 +40,9 @@ export default function Comments({ postId, userId }: CommentProps) {
 
   useEffect(() => {
     fetchComments();
-  }, [postId]);
+    // Check if current user is a moderator
+    checkIfUserIsMod(userId).then(setIsMod);
+  }, [postId, userId]);
 
   const handleAddComment = async () => {
     if (!commentText.trim()) return;
@@ -52,6 +55,21 @@ export default function Comments({ postId, userId }: CommentProps) {
       setError(err.message || "Failed to add comment");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string, commentUserId: string) => {
+    try {
+      if (isMod) {
+        // Moderators can delete any comment
+        await deleteCommentAsMod(commentId);
+      } else if (commentUserId === userId) {
+        // Users can only delete their own comments
+        await deleteComment(commentId);
+      }
+      fetchComments();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete comment');
     }
   };
 
