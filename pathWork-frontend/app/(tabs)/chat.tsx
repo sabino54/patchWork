@@ -6,6 +6,37 @@ import { ConversationWithUsers, fetchAllConversations } from "@/lib/messages";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
+const formatTimeAgo = (date: Date) => {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) {
+    return 'just now';
+  }
+  
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes}m ago`;
+  }
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return `${diffInHours}h ago`;
+  }
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) {
+    return `${diffInDays}d ago`;
+  }
+  
+  // If more than a week, show the date
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+  });
+};
+
 export default function ChatList() {
   const [user, setUser] = useState<User | null>()
   const [conversations, setConversations] = useState<ConversationWithUsers[]>([])
@@ -84,14 +115,16 @@ export default function ChatList() {
                   }
                 </Text>
                 <Text style={styles.lastMessage} numberOfLines={1}>
-                  {conversation.last_message_at ? new Date(conversation.last_message_at).toLocaleString('en-US') : new Date(conversation.created_at).toLocaleString('en-US')}
-                </Text>
-                <Text style={styles.lastMessage} numberOfLines={1}>
-                  {conversation.last_message ? conversation.last_message : 'No messages yet'}
+                  {conversation.last_message || 'No messages yet'}
                 </Text>
               </View>
             </View>
-            <MaterialIcons name="chevron-right" size={24} color="#8d5fd3" />
+            <View style={styles.rightContent}>
+              <Text style={styles.timeText}>
+                {formatTimeAgo(new Date(conversation.last_message_at || conversation.created_at))}
+              </Text>
+              <MaterialIcons name="chevron-right" size={24} color="#8d5fd3" />
+            </View>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -164,5 +197,15 @@ const styles = StyleSheet.create({
   lastMessage: {
     fontSize: 14,
     color: '#666',
+  },
+  rightContent: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#8d5fd3',
+    marginBottom: 4,
   },
 })

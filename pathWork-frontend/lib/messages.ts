@@ -137,7 +137,7 @@ export async function sendMessage({
   }
 
   // Update the last message timestamp in the conversation
-  const { data: lastmsgdata, error: lastmsgerror } = await supabase
+  const { error: lastmsgerror } = await supabase
     .from('conversations')
     .update({ last_message_at: data.created_at, last_message: content })
     .eq('id', conversationId)
