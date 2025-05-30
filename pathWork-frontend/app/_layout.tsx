@@ -25,6 +25,17 @@ export default function RootLayout() {
     });
   }, []);
 
+
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000,
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
+    },
+  }));
+
   if (!session) {
     return <Auth />;
   }

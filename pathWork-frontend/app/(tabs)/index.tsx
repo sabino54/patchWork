@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -32,6 +32,15 @@ import Comments from "../../components/Comments";
 import { supabase } from "../../lib/supabase";
 import { getCommentCount } from "../../lib/comments";
 
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import {
+  usePosts,
+  useFollowingPosts,
+  useDeletePost,
+  queryKeys,
+} from "../../lib/queries";
+import { Image as ExpoImage } from "expo-image";
+
 const categories = [
   "All",
   "Following",
@@ -52,13 +61,11 @@ const categories = [
 
 export default function Index() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]>("All");
-  const [allPosts, setAllPosts] = useState<Post[]>([]); // Cache for all posts
-  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const animatedWidth = useRef(new Animated.Value(0)).current;
@@ -67,6 +74,91 @@ export default function Index() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isMod, setIsMod] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+
+  // Use React Query hooks
+  const {
+    data: allPosts = [],
+    isLoading: isLoadingAllPosts,
+    error: allPostsError,
+    refetch: refetchAllPosts,
+  } = usePosts();
+
+  const {
+    data: followingPosts = [],
+    isLoading: isLoadingFollowingPosts,
+    error: followingPostsError,
+    refetch: refetchFollowingPosts,
+  } = useFollowingPosts(currentUserId);
+
+  const deletePostMutation = useDeletePost();
+
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data.user?.id || null;
+      setCurrentUserId(userId);
+      if (userId) {
+        checkIfUserIsMod(userId).then(setIsMod);
+      }
+    });
+  }, []);
+
+  // Prefetch following posts when user is logged in
+  useEffect(() => {
+    if (currentUserId) {
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.followingPosts(currentUserId),
+        queryFn: () => getPostsFromFollowing(currentUserId),
+      });
+    }
+  }, [currentUserId, queryClient]);
+
+  // Determine which posts to show based on category and search
+  const displayedPosts = useMemo(() => {
+    let posts = selectedCategory === "Following" ? followingPosts : allPosts;
+
+    if (selectedCategory !== "All" && selectedCategory !== "Following") {
+      posts = posts.filter(
+        (post) => post.tags && post.tags.includes(selectedCategory)
+      );
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      posts = posts.filter((post) => {
+        const title = post.title?.toLowerCase() || "";
+        const description = post.description?.toLowerCase() || "";
+        const username = post.user?.username?.toLowerCase() || "";
+        const project = post.project?.toLowerCase() || "";
+
+        return (
+          title.includes(query) ||
+          description.includes(query) ||
+          username.includes(query) ||
+          project.includes(query)
+        );
+      });
+    }
+
+    return posts;
+  }, [selectedCategory, allPosts, followingPosts, searchQuery]);
+
+  // Loading and error states
+  const isLoading =
+    selectedCategory === "Following"
+      ? isLoadingFollowingPosts
+      : isLoadingAllPosts;
+
+  const currentError =
+    selectedCategory === "Following" ? followingPostsError : allPostsError;
+
+  const onRefresh = React.useCallback(() => {
+    if (selectedCategory === "Following") {
+      refetchFollowingPosts();
+    } else {
+      refetchAllPosts();
+    }
+  }, [selectedCategory, refetchFollowingPosts, refetchAllPosts]);
 
   const toggleSearch = () => {
     const toValue = isSearchVisible ? 0 : 1;
@@ -85,117 +177,6 @@ export default function Index() {
       }),
     ]).start();
   };
-
-  // Initial load of all posts
-  useEffect(() => {
-    fetchAllPosts();
-  }, []);
-
-  // Get current user
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const userId = data.user?.id || null;
-      setCurrentUserId(userId);
-      if (userId) {
-        checkIfUserIsMod(userId).then(setIsMod);
-      }
-    });
-  }, []);
-
-  // Handle category changes
-  useEffect(() => {
-    if (selectedCategory === "Following") {
-      if (!currentUserId) {
-        setError("Please sign in to view posts from people you follow");
-        setFilteredPosts([]);
-        return;
-      }
-      fetchFollowingPosts();
-    } else if (selectedCategory === "All") {
-      setFilteredPosts(allPosts);
-    } else {
-      const categoryPosts = allPosts.filter(
-        (post) => post.tags && post.tags.includes(selectedCategory)
-      );
-      setFilteredPosts(categoryPosts);
-    }
-  }, [selectedCategory, allPosts, currentUserId]);
-
-  // Handle search
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      // Reset to current category's posts
-      if (selectedCategory === "All") {
-        setFilteredPosts(allPosts);
-      } else if (selectedCategory === "Following") {
-        if (currentUserId) {
-          fetchFollowingPosts();
-        }
-      } else {
-        const categoryPosts = allPosts.filter(
-          (post) => post.tags && post.tags.includes(selectedCategory)
-        );
-        setFilteredPosts(categoryPosts);
-      }
-      return;
-    }
-
-    const query = searchQuery.toLowerCase().trim();
-    const filtered = allPosts.filter((post) => {
-      const title = post.title?.toLowerCase() || "";
-      const description = post.description?.toLowerCase() || "";
-      const username = post.user?.username?.toLowerCase() || "";
-      const project = post.project?.toLowerCase() || "";
-
-      return (
-        title.includes(query) ||
-        description.includes(query) ||
-        username.includes(query) ||
-        project.includes(query)
-      );
-    });
-    setFilteredPosts(filtered);
-  }, [searchQuery, allPosts, selectedCategory, currentUserId]);
-
-  const fetchAllPosts = async () => {
-    try {
-      setLoading(true);
-      const posts = await getPosts();
-      setAllPosts(posts);
-      setFilteredPosts(posts);
-      setError(null);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
-      console.error("Error loading posts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchFollowingPosts = async () => {
-    if (!currentUserId) return;
-
-    try {
-      setLoading(true);
-      const posts = await getPostsFromFollowing(currentUserId);
-      setFilteredPosts(posts);
-      setError(null);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
-      console.error("Error loading posts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    fetchAllPosts().finally(() => setRefreshing(false));
-  }, []);
 
   const handleUserPress = (username: string) => {
     router.push(`/user/${username.replace("@", "")}` as any);
@@ -221,14 +202,8 @@ export default function Index() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await deletePost(postId);
-              fetchAllPosts(); // Refresh the posts list
-            } catch (error) {
-              Alert.alert("Error", "Failed to delete post");
-              console.error("Error deleting post:", error);
-            }
+          onPress: () => {
+            deletePostMutation.mutate(postId);
           },
         },
       ]
@@ -248,9 +223,12 @@ export default function Index() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerCenter}>
-          <Image
+          <ExpoImage
             source={require("../../assets/images/LOGO.png")}
             style={styles.logo}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
           />
           <Animated.Text style={[styles.headerText, { opacity: textOpacity }]}>
             Patchwork
@@ -331,10 +309,12 @@ export default function Index() {
           activeOpacity={1}
           onPress={closeImageViewer}
         >
-          <Image
+          <ExpoImage
             source={{ uri: selectedImage || "" }}
             style={styles.fullScreenImage}
-            resizeMode="contain"
+            contentFit="contain"
+            transition={200}
+            cachePolicy="memory-disk"
           />
         </TouchableOpacity>
       </Modal>
@@ -370,23 +350,27 @@ export default function Index() {
         style={styles.feed}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={isLoading}
             onRefresh={onRefresh}
             colors={["#8d5fd3"]}
             tintColor="#8d5fd3"
           />
         }
       >
-        {loading ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#8d5fd3" />
             <Text style={styles.loadingText}>Loading posts...</Text>
           </View>
-        ) : error ? (
+        ) : currentError ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>
+              {typeof currentError === "string"
+                ? currentError
+                : "An error occurred"}
+            </Text>
           </View>
-        ) : filteredPosts.length === 0 ? (
+        ) : displayedPosts.length === 0 ? (
           <View style={styles.noResultsContainer}>
             <Text style={styles.noResultsText}>
               {searchQuery
@@ -397,16 +381,19 @@ export default function Index() {
             </Text>
           </View>
         ) : (
-          filteredPosts.map((post) => (
+          displayedPosts.map((post) => (
             <TouchableOpacity
               key={post.id}
               style={styles.postCard}
               onPress={() => openCommentsModal(post)}
             >
               <View style={styles.postHeader}>
-                <Image
+                <ExpoImage
                   source={{ uri: post.user.profile_photo }}
                   style={styles.avatar}
+                  contentFit="cover"
+                  transition={200}
+                  cachePolicy="memory-disk"
                 />
                 <TouchableOpacity
                   onPress={() => handleUserPress(post.user.username)}
@@ -432,14 +419,24 @@ export default function Index() {
                   <TouchableOpacity
                     onPress={() => handleImagePress(post.media_url)}
                   >
-                    <Image
+                    <ExpoImage
                       source={{ uri: post.media_url }}
                       style={styles.postImage}
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
                     />
                   </TouchableOpacity>
                 )}
                 {post.media_type === "video" && (
-                  <VideoPlayer url={post.media_url} />
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <VideoPlayer url={post.media_url} />
+                  </TouchableOpacity>
                 )}
                 {post.media_type === "link" && (
                   <View style={styles.linkContainer}>
@@ -484,6 +481,7 @@ const styles = StyleSheet.create({
     height: 50,
     marginRight: 8,
     borderRadius: 8,
+    backgroundColor: "#f0f0f0",
   },
   headerText: {
     fontSize: 37,
@@ -547,6 +545,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     marginRight: 8,
+    backgroundColor: "#f0f0f0",
   },
   username: {
     fontWeight: "bold",
@@ -566,7 +565,7 @@ const styles = StyleSheet.create({
   postImage: {
     width: "100%",
     height: 180,
-    backgroundColor: "#eee",
+    backgroundColor: "#f0f0f0",
   },
   audioRow: {
     flexDirection: "row",
@@ -764,6 +763,7 @@ const styles = StyleSheet.create({
   fullScreenImage: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
+    backgroundColor: "#000",
   },
   commentsModalContent: {
     backgroundColor: "#fff",
@@ -792,18 +792,14 @@ const styles = StyleSheet.create({
   },
 });
 
-// For testing purposes
+// Update CommentCount to use React Query
 function CommentCount({ postId }: { postId: string }) {
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    let isMounted = true;
-    getCommentCount(postId).then((c) => {
-      if (isMounted) setCount(c);
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [postId]);
+  const { data: count = 0 } = useQuery({
+    queryKey: ["comment-count", postId],
+    queryFn: () => getCommentCount(postId),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   return (
     <Text style={styles.comments}>
       {count === null ? "..." : `${count} comment${count === 1 ? "" : "s"}`}

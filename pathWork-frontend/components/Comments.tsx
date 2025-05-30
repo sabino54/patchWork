@@ -15,7 +15,6 @@ import {
   getComments,
   addComment,
   deleteComment,
-  deleteCommentAsMod,
   checkIfUserIsMod,
 } from "../lib/comments";
 import { Ionicons } from "@expo/vector-icons";

@@ -11,12 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import {
-  getPostsByUsername,
-  Post,
-  deletePost,
-  checkIfUserIsMod,
-} from "../lib/posts";
+import { Post, checkIfUserIsMod } from "../lib/posts";
 import VideoPlayer from "./VideoPlayer";
 import LinkDisplay from "./LinkDisplay";
 import AudioPlayer from "./AudioPlayer";
@@ -24,7 +19,10 @@ import formatTime from "./timeFormat";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 import Comments from "./Comments";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUserPosts, useDeletePost, queryKeys } from "../lib/queries";
 import { getCommentCount } from "../lib/comments";
+import { Image as ExpoImage } from "expo-image";
 
 interface UserPostsProps {
   username: string;
@@ -32,16 +30,22 @@ interface UserPostsProps {
 
 export default function UserPosts({ username }: UserPostsProps) {
   const router = useRouter();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isMod, setIsMod] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
+  // Use React Query hooks
+  const {
+    data: posts = [],
+    isLoading,
+    error: postsError,
+  } = useUserPosts(username);
+
+  const deletePostMutation = useDeletePost();
+
   useEffect(() => {
-    loadUserPosts();
     // Get current user ID and check if they're a moderator
     supabase.auth.getUser().then(({ data }) => {
       const userId = data.user?.id || null;
@@ -51,22 +55,6 @@ export default function UserPosts({ username }: UserPostsProps) {
       }
     });
   }, [username]);
-
-  const loadUserPosts = async () => {
-    try {
-      setLoading(true);
-      const userPosts = await getPostsByUsername(username);
-      setPosts(userPosts);
-      setError(null);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
-      console.error("Error loading user posts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleUserPress = (username: string) => {
     router.push(`/user/${username.replace("@", "")}` as any);
@@ -92,14 +80,15 @@ export default function UserPosts({ username }: UserPostsProps) {
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await deletePost(postId);
-              loadUserPosts(); // Refresh the posts list
-            } catch (error) {
-              Alert.alert("Error", "Failed to delete post");
-              console.error("Error deleting post:", error);
-            }
+          onPress: () => {
+            deletePostMutation.mutate(postId, {
+              onSuccess: () => {
+                // Invalidate and refetch user posts
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.userPosts(username),
+                });
+              },
+            });
           },
         },
       ]
@@ -114,7 +103,7 @@ export default function UserPosts({ username }: UserPostsProps) {
     setSelectedPost(null);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8d5fd3" />
@@ -123,10 +112,12 @@ export default function UserPosts({ username }: UserPostsProps) {
     );
   }
 
-  if (error) {
+  if (postsError) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>
+          {typeof postsError === "string" ? postsError : "An error occurred"}
+        </Text>
       </View>
     );
   }
@@ -153,10 +144,12 @@ export default function UserPosts({ username }: UserPostsProps) {
           activeOpacity={1}
           onPress={closeImageViewer}
         >
-          <Image
+          <ExpoImage
             source={{ uri: selectedImage || "" }}
             style={styles.fullScreenImage}
-            resizeMode="contain"
+            contentFit="contain"
+            transition={200}
+            cachePolicy="memory-disk"
           />
         </TouchableOpacity>
       </Modal>
@@ -194,9 +187,12 @@ export default function UserPosts({ username }: UserPostsProps) {
           onPress={() => openCommentsModal(post)}
         >
           <View style={styles.postHeader}>
-            <Image
+            <ExpoImage
               source={{ uri: post.user.profile_photo }}
               style={styles.avatar}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
             />
             <TouchableOpacity
               onPress={() => handleUserPress(post.user.username)}
@@ -210,9 +206,12 @@ export default function UserPosts({ username }: UserPostsProps) {
               <TouchableOpacity
                 onPress={() => handleImagePress(post.media_url)}
               >
-                <Image
+                <ExpoImage
                   source={{ uri: post.media_url }}
                   style={styles.postImage}
+                  contentFit="cover"
+                  transition={200}
+                  cachePolicy="memory-disk"
                 />
               </TouchableOpacity>
             )}
@@ -283,6 +282,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     marginRight: 8,
+    backgroundColor: "#f0f0f0",
   },
   username: {
     fontWeight: "bold",
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   postImage: {
     width: "100%",
     height: 180,
-    backgroundColor: "#eee",
+    backgroundColor: "#f0f0f0",
   },
   postTitle: {
     fontWeight: "bold",
@@ -388,6 +388,7 @@ const styles = StyleSheet.create({
   fullScreenImage: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
+    backgroundColor: "#000",
   },
   deleteIcon: {
     padding: 4,
@@ -427,18 +428,14 @@ const styles = StyleSheet.create({
   },
 });
 
-// Comment Count Component
+// Update CommentCount to use React Query
 function CommentCount({ postId }: { postId: string }) {
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    let isMounted = true;
-    getCommentCount(postId).then((c) => {
-      if (isMounted) setCount(c);
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [postId]);
+  const { data: count = 0 } = useQuery({
+    queryKey: ["comment-count", postId],
+    queryFn: () => getCommentCount(postId),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   return (
     <Text style={styles.comments}>
       {count === null ? "..." : `${count} comment${count === 1 ? "" : "s"}`}
