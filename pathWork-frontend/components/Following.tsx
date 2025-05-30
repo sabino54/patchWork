@@ -47,7 +47,7 @@ export default function Following({ userId, onUserPress }: FollowingProps) {
         .select(
           `
           followed_id,
-          public_profiles!followed_id (
+          public_profiles:followed_id (
             id,
             username,
             profile_photo

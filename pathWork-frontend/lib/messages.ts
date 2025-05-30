@@ -88,7 +88,7 @@ export async function fetchAllConversations(
       `*, user_a:conversation_user_a_id_fkey(*), user_b:conversation_user_b_id_fkey(*)`,
     )
     .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`)
-    .order('last_message_at', { ascending: false });
+    .order('last_message_at', { ascending: true }); // ascending is true because we want to show the most recent conversations first
 
   if (error) {
     throw error;

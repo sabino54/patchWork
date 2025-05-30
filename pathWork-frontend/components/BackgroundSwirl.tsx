@@ -22,8 +22,8 @@ export default function BackgroundSwirl() {
     const startAnimation = () => {
       progress1.value = withRepeat(
         withSequence(
-          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-1, { duration: 4000, easing: Easing.inOut(Easing.sin) })
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+          withTiming(-1, { duration: 1000, easing: Easing.inOut(Easing.sin) })
         ),
         -1,
         true
@@ -31,8 +31,8 @@ export default function BackgroundSwirl() {
 
       progress2.value = withRepeat(
         withSequence(
-          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-1, { duration: 4000, easing: Easing.inOut(Easing.sin) })
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+          withTiming(-1, { duration: 1000, easing: Easing.inOut(Easing.sin) })
         ),
         -1,
         true
@@ -40,8 +40,8 @@ export default function BackgroundSwirl() {
 
       progress3.value = withRepeat(
         withSequence(
-          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-1, { duration: 4000, easing: Easing.inOut(Easing.sin) })
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+          withTiming(-1, { duration: 1000, easing: Easing.inOut(Easing.sin) })
         ),
         -1,
         true
