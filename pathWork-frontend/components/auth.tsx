@@ -193,13 +193,13 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logo: {
-    width: 50,
-    height: 50,
+    width: 70,
+    height: 70,
     marginRight: 8,
     borderRadius: 8,
   },
   headerText: {
-    fontSize: 37,
+    fontSize: 42,
     fontWeight: "bold",
     color: "#a084ca",
     letterSpacing: 1,

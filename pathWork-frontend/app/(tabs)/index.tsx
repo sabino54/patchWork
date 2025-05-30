@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -14,15 +13,10 @@ import {
   Modal,
   Dimensions,
   Alert,
+  StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
-import {
-  getPosts,
-  Post,
-  deletePost,
-  checkIfUserIsMod,
-  getPostsFromFollowing,
-} from "../../lib/posts";
+import { Post, checkIfUserIsMod, getPostsFromFollowing } from "../../lib/posts";
 import VideoPlayer from "../../components/VideoPlayer";
 import LinkDisplay from "../../components/LinkDisplay";
 import AudioPlayer from "../../components/AudioPlayer";
@@ -65,7 +59,6 @@ export default function Index() {
 
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]>("All");
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const animatedWidth = useRef(new Animated.Value(0)).current;
@@ -220,6 +213,7 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f7f0fa" />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerCenter}>
@@ -414,6 +408,10 @@ export default function Index() {
                   </TouchableOpacity>
                 )}
               </View>
+              <View style={styles.postContent}>
+                <Text style={styles.postTitle}>{post.title}</Text>
+                <Text style={styles.postText}>{post.description}</Text>
+              </View>
               <View style={styles.mediaContainer}>
                 {post.media_type === "image" && (
                   <TouchableOpacity
@@ -447,13 +445,9 @@ export default function Index() {
                   <AudioPlayer url={post.media_url} />
                 )}
               </View>
-              <View style={styles.postContent}>
-                <Text style={styles.postTitle}>{post.title}</Text>
-                <Text style={styles.postText}>{post.description}</Text>
-                <View style={styles.postFooter}>
-                  <Text style={styles.time}>{formatTime(post.created_at)}</Text>
-                  <CommentCount postId={post.id} />
-                </View>
+              <View style={styles.postFooter}>
+                <Text style={styles.time}>{formatTime(post.created_at)}</Text>
+                <CommentCount postId={post.id} />
               </View>
             </TouchableOpacity>
           ))
@@ -533,12 +527,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
+    overflow: "hidden",
   },
   postHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
     padding: 14,
+    paddingBottom: 8,
   },
   avatar: {
     width: 32,
@@ -553,18 +548,21 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   time: {
-    color: "#aaa",
-    fontSize: 12,
+    color: "#888",
+    fontSize: 13,
+    fontWeight: "500",
   },
   mediaContainer: {
     width: "100%",
+    backgroundColor: "#f8f8f8",
   },
   postContent: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
   },
   postImage: {
     width: "100%",
-    height: 180,
+    height: 220,
     backgroundColor: "#f0f0f0",
   },
   audioRow: {
@@ -597,18 +595,19 @@ const styles = StyleSheet.create({
   },
   postTitle: {
     fontWeight: "bold",
-    fontSize: 16,
-    marginBottom: 2,
+    fontSize: 18,
+    marginBottom: 6,
     color: "#222",
   },
   postText: {
     color: "#444",
-    marginBottom: 8,
+    fontSize: 15,
+    lineHeight: 20,
   },
   comments: {
     color: "#8d5fd3",
     fontSize: 13,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   bottomNav: {
     position: "absolute",
@@ -656,10 +655,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
-    paddingTop: 8,
+    padding: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#e0d6f7",
+    backgroundColor: "#fff",
   },
   tagContainer: {
     flexDirection: "row",
@@ -751,9 +751,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   linkContainer: {
-    paddingLeft: 14,
-    paddingRight: 14,
-    marginBottom: 10,
+    padding: 14,
+    backgroundColor: "#fff",
   },
   modalContainer: {
     flex: 1,

@@ -103,9 +103,7 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     backgroundColor: "#fff",
-    borderRadius: 12,
     padding: 12,
-    marginVertical: 4,
   },
   controlsContainer: {
     flexDirection: "row",
@@ -119,6 +117,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    marginBottom: 12,
   },
   progressContainer: {
     flex: 1,
