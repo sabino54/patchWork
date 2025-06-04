@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "patchWork",
+    "name": "Patchwork",
     "slug": "patchwork",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.patchWork",
+      "bundleIdentifier": "com.aviously2.patchWork",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
