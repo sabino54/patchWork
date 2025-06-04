@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "patchWork",
-    "slug": "patchWork",
+    "slug": "patchwork",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/PWIcon.png",
@@ -10,13 +10,20 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.patchWork"
+      "bundleIdentifier": "com.anonymous.patchWork",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -46,6 +53,19 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "25b1e6f4-cf95-45ac-87b3-46cfa25f39e5"
+      }
+    },
+    "owner": "aviously2",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/25b1e6f4-cf95-45ac-87b3-46cfa25f39e5"
     }
   }
 }
